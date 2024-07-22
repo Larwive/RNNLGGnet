@@ -1,10 +1,8 @@
-import datetime
 import copy
-from train import *
-from utils import Averager, ensure_path
 from sklearn.model_selection import KFold
 from functools import reduce
-import torch.optim as optim
+from train import *
+from utils import Averager, ensure_path
 
 ROOT = os.getcwd()
 
@@ -20,7 +18,7 @@ class CrossValidation:
         ensure_path(result_path)
         self.text_file = osp.join(result_path,
                                   "results_{}.txt".format(args.dataset))
-        with open(self.text_file, 'a') as file:
+        """with open(self.text_file, 'a') as file:
             file.write("\n" + str(datetime.datetime.now()) +
                        "\nTrain:Parameter setting for " + str(args.model) + ' on ' + str(args.dataset) +
                        "\n2)random_seed:" + str(args.random_seed) +
@@ -32,9 +30,18 @@ class CrossValidation:
                        "\n8)hidden_node:" + str(args.hidden) +
                        "\n9)input_shape:" + str(args.input_shape) +
                        "\n11)T:" + str(args.T) +
-                       "\n12)graph-type:" + str(args.graph_type) + '\n')
+                       "\n12)graph-type:" + str(args.graph_type) + '\n')"""
 
-    def load_per_subject(self, sub):
+    @staticmethod
+    def read_data(sub: int, save_path: str, data_type: str):
+        sub_code = 'sub{}.hdf'.format(sub)
+        path = osp.join(save_path, data_type, sub_code)
+        with h5py.File(path, 'r') as dataset:
+            data = np.array(dataset['data'])
+            label = np.array(dataset['label'])
+        return data, label
+
+    def load_per_subject(self, sub: int):
         """
         load data for sub
         :param sub: which subject's data to load
@@ -42,26 +49,20 @@ class CrossValidation:
         """
         save_path = os.getcwd()
         data_type = 'data_{}_{}'.format(self.args.data_format, self.args.dataset)
-        sub_code = 'sub{}.hdf'.format(sub)
-        path = osp.join(save_path, data_type, sub_code)
-        with h5py.File(path, 'r') as dataset:
-            data = np.array(dataset['data'])
-            label = np.array(dataset['label'])
+        data, label = self.read_data(sub, save_path, data_type)
         print('>>> Data:{} Label:{}'.format(data.shape, label.shape))
         return data, label
 
-    def load_all_except_one(self, excluded_sub, max_subject: int = 27, shuffle: bool = False):
+    def load_all_except_one(self, excluded_sub: int, max_subject: int = 27, shuffle: bool = False):
         save_path = os.getcwd()
         data_type = 'data_{}_{}_{}'.format(self.args.data_format, self.args.dataset, self.args.label_type)
         datas, labels = [], []
         for sub in range(max_subject):
             if sub == excluded_sub:
                 continue
-            sub_code = 'sub{}.hdf'.format(sub)
-            path = osp.join(save_path, data_type, sub_code)
-            dataset = h5py.File(path, 'r')
-            datas.append(np.array(dataset['data']))
-            labels.append(np.array(dataset['label']))
+            data, label = self.read_data(sub, save_path, data_type)
+            datas.append(data)
+            labels.append(label)
             print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
         datas = reduce(lambda x, y: np.concatenate((x, y), axis=0), datas)
         labels = reduce(lambda x, y: np.concatenate((x, y), axis=0), labels)
@@ -77,11 +78,9 @@ class CrossValidation:
         data_type = 'data_{}_{}_{}'.format(self.args.data_format, self.args.dataset, self.args.label_type)
         datas, labels = [], []
         for sub in range(max_subject):
-            sub_code = 'sub{}.hdf'.format(sub)
-            path = osp.join(save_path, data_type, sub_code)
-            dataset = h5py.File(path, 'r')
-            datas.append(np.array(dataset['data']))
-            labels.append(np.array(dataset['label']))
+            data, label = self.read_data(sub, save_path, data_type)
+            datas.append(data)
+            labels.append(label)
             print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
 
         return datas, labels
@@ -96,37 +95,19 @@ class CrossValidation:
         :param label: (segments,)
         :return: data and label
         """
-        data_train = data[idx_train]
-        label_train = label[idx_train]
+
+        """
+        We want to do trial-wise 10-fold, so the idx_train/idx_test is for
+        trials.
+        data: (trial, segment, 1, chan, datapoint)
+        To use the normalization function, we should change the dimension from
+        (trial, segment, 1, chan, datapoint) to (trial*segments, 1, chan, datapoint)
+        """
+        data_train = np.concatenate(data[idx_train], axis=0)
+        label_train = np.concatenate(label[idx_train], axis=0)
         data_test = data[idx_test]
         label_test = label[idx_test]
-
-        if self.args.dataset == 'HOSP':
-            """
-            We want to do trial-wise 10-fold, so the idx_train/idx_test is for
-            trials.
-            data: (trial, segment, 1, chan, datapoint)
-            To use the normalization function, we should change the dimension from
-            (trial, segment, 1, chan, datapoint) to (trial*segments, 1, chan, datapoint)
-            """
-            data_train = np.concatenate(data_train, axis=0)
-            label_train = np.concatenate(label_train, axis=0)
-            if len(data_test.shape) > 4:
-                """
-                When leave one trial out is conducted, the test data will be (segments, 1, chan, datapoint), hence,
-                no need to concatenate the first dimension to get trial*segments
-                """
-                data_test = np.concatenate(data_test, axis=0)
-                label_test = np.concatenate(label_test, axis=0)
-
-        data_train, data_test = self.normalize(train_data=data_train, test_data=data_test)
-        # Prepare the data format for training the model using PyTorch
-        data_train = torch.from_numpy(data_train).float()
-        label_train = torch.from_numpy(label_train).long()
-
-        data_test = torch.from_numpy(data_test).float()
-        label_test = torch.from_numpy(label_test).long()
-        return data_train, label_train, data_test, label_test
+        return self.normalize_data(data_train, label_train, data_test, label_test)
 
     def prepare_data_subject_fold(self, train_data, train_label, test_data, test_label):
         """
@@ -149,19 +130,20 @@ class CrossValidation:
         label_train = np.concatenate(train_label, axis=0)
         data_test = test_data
         label_test = test_label
-        if len(test_data.shape) > 4:
+        return self.normalize_data(data_train, label_train, data_test, label_test)
+
+    def normalize_data(self, data_train, label_train, data_test, label_test):
+        if len(data_test.shape) > 4:
             """
             When leave one trial out is conducted, the test data will be (segments, 1, chan, datapoint), hence,
             no need to concatenate the first dimension to get trial*segments
             """
-            data_test = np.concatenate(test_data, axis=0)
-            label_test = np.concatenate(test_label, axis=0)
-
+            data_test = np.concatenate(data_test, axis=0)
+            label_test = np.concatenate(label_test, axis=0)
         data_train, data_test = self.normalize(train_data=data_train, test_data=data_test)
         # Prepare the data format for training the model using PyTorch
         data_train = torch.from_numpy(data_train).float()
         label_train = torch.from_numpy(label_train).long()
-
         data_test = torch.from_numpy(data_test).float()
         label_test = torch.from_numpy(label_test).long()
         return data_train, label_train, data_test, label_test
@@ -271,37 +253,10 @@ class CrossValidation:
                 acc_test, pred, act = test(args=self.args, data=data_test, label=label_test,
                                            reproduce=self.args.reproduce,
                                            subject=sub, fold=0)
-            va_val.add(acc_val)
-            vf_val.add(f1_val)
-            preds.extend(pred)
-            acts.extend(act)
+            self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, preds, pred, acts, act, tva, tvf, tta,
+                                         ttf)
 
-            tva.append(va_val.item())
-            tvf.append(vf_val.item())
-            acc, f1, _ = get_metrics(y_pred=preds, y_true=acts)
-            tta.append(acc)
-            ttf.append(f1)
-            result = '{},{}'.format(tta[-1], f1)
-            self.log2txt(result)
-
-        # prepare final report
-        tta = np.array(tta)
-        # ttf = np.array(ttf)
-        tva = np.array(tva)
-        tvf = np.array(tvf)
-        mACC = np.mean(tta)
-        # mF1 = np.mean(ttf)
-        std = np.std(tta)
-        mACC_val = np.mean(tva)
-        std_val = np.std(tva)
-        mF1_val = np.mean(tvf)
-
-        print('Final: test mean ACC:{} std:{}'.format(mACC, std))
-        print('Final: val mean ACC:{} std:{}'.format(mACC_val, std_val))
-        print('Final: val mean F1:{}'.format(mF1_val))
-        # results = 'test mAcc={} mF1={} val mAcc={} val F1={}'.format(mACC,
-        #                                                             mF1, mACC_val, mF1_val)
-        # self.log2txt(results)
+        self.final_print(tta, tva, tvf)
 
     def subject_fold_cv_phase_2_3(self, subject=None, phase: int = 2):
         """
@@ -385,9 +340,7 @@ class CrossValidation:
                         print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
                               .format(epoch, tl.item(), acc_train, f1_train))
 
-                        loss_val, pred_val, act_val = predict(
-                            data_loader=val_loader, net=model, loss_fn=criterion
-                        )
+                        loss_val, pred_val, act_val = predict(data_loader=val_loader, net=model, loss_fn=criterion)
                         acc_val, f1_val, _ = get_metrics(y_pred=pred_val, y_true=act_val)
                         print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.
                               format(epoch, loss_val, acc_val, f1_val))
@@ -412,19 +365,25 @@ class CrossValidation:
                             'ETA:{}/{} SUB:{}'.format(timer.measure(), timer.measure(epoch / self.args.phase_2_epochs),
                                                       subject))
 
-                va_val.add(acc_val)
-                vf_val.add(f1_val)
-                preds.extend(pred)
-                acts.extend(act)
+                self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, preds, pred, acts, act, tva, tvf, tta,
+                                             ttf)
 
-                tva.append(va_val.item())
-                tvf.append(vf_val.item())
-                acc, f1, _ = get_metrics(y_pred=preds, y_true=acts)
-                tta.append(acc)
-                ttf.append(f1)
-                result = '{},{}'.format(tta[-1], f1)
-                self.log2txt(result)
+        self.final_print(tta, tva, tvf)
 
+    @staticmethod
+    def aggregate_compute_score(va_val, acc_val, vf_val, f1_val, preds, pred, acts, act, tva, tvf, tta, ttf):
+        va_val.add(acc_val)
+        vf_val.add(f1_val)
+        preds.extend(pred)
+        acts.extend(act)
+        tva.append(va_val.item())
+        tvf.append(vf_val.item())
+        acc, f1, _ = get_metrics(y_pred=preds, y_true=acts)
+        tta.append(acc)
+        ttf.append(f1)
+
+    @staticmethod
+    def final_print(tta, tva, tvf):
         # prepare final report
         tta = np.array(tta)
         # ttf = np.array(ttf)
@@ -436,7 +395,6 @@ class CrossValidation:
         mACC_val = np.mean(tva)
         std_val = np.std(tva)
         mF1_val = np.mean(tvf)
-
         print('Final: test mean ACC:{} std:{}'.format(mACC, std))
         print('Final: val mean ACC:{} std:{}'.format(mACC_val, std_val))
         print('Final: val mean F1:{}'.format(mF1_val))

@@ -4,7 +4,6 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-
 for dirpath, dirnames, filenames in os.walk('./RBDdata/'):
     for filename in filenames:
         if filename.endswith(".edf"):

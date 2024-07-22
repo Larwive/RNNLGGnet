@@ -80,9 +80,7 @@ def train_loop(args, model, train_loader, val_loader, subject, fold):
         print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
               .format(epoch, loss_train, acc_train, f1_train))
 
-        loss_val, pred_val, act_val = predict(
-            data_loader=val_loader, net=model, loss_fn=loss_fn
-        )
+        loss_val, pred_val, act_val = predict(data_loader=val_loader, net=model, loss_fn=loss_fn)
         acc_val, f1_val, _ = get_metrics(y_pred=pred_val, y_true=act_val)
         print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.
               format(epoch, loss_val, acc_val, f1_val))
@@ -113,6 +111,7 @@ def train_loop(args, model, train_loader, val_loader, subject, fold):
     torch.save(trlog, osp.join(save_path, save_name))
 
     return trlog['max_acc'], trlog['F1']
+
 
 def train(args, data_train, label_train, data_val, label_val, subject, fold):
     seed_all(args.random_seed)

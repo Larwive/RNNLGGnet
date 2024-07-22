@@ -1,7 +1,6 @@
 import mne
 import os
 import warnings
-import numpy as np
 from preprocess import preprocess_raw
 import pickle
 

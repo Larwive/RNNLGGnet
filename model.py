@@ -112,9 +112,8 @@ class LGGNet(nn.Module):
 
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, x):
-        y = self.Tception1(x)
-        out = y
+    def temporal_learning_block(self, x):
+        out = self.Tception1(x)
         y = self.Tception2(x)
         out = torch.cat((out, y), dim=-1)
         y = self.Tception3(x)
@@ -124,6 +123,10 @@ class LGGNet(nn.Module):
         out = self.BN_t_(out)
         out = out.permute(0, 2, 1, 3)
         out = torch.reshape(out, (out.size(0), out.size(1), -1))
+        return out
+
+    def common_forward(self, x):
+        out = self.temporal_learning_block(x)
         out = self.local_filter_fun(out, self.local_filter_weight)
         out = self.aggregate.forward(out)
         adj = self.get_adj(out)
@@ -131,6 +134,10 @@ class LGGNet(nn.Module):
         out = self.GCN(out, adj)
         out = self.bn_(out)
         out = out.view(out.size()[0], -1)
+        return out
+
+    def forward(self, x):
+        out = self.common_forward(x)
         out = self.fc(out)
 
         out = self.sigmoid(out)  # Added
@@ -139,19 +146,7 @@ class LGGNet(nn.Module):
     def get_size_temporal(self, input_size):
         # input_size: frequency x channel x data point
         data = torch.ones((1, input_size[0], input_size[1], int(input_size[2])))
-        z = self.Tception1(data)
-        out = z
-        z = self.Tception2(data)
-        out = torch.cat((out, z), dim=-1)
-        z = self.Tception3(data)
-        out = torch.cat((out, z), dim=-1)
-        out = self.BN_t(out)
-        out = self.OneXOneConv(out)
-        out = self.BN_t_(out)
-        out = out.permute(0, 2, 1, 3)
-        out = torch.reshape(out, (out.size(0), out.size(1), -1))
-        size = out.size()
-        return size
+        return self.temporal_learning_block(data).size()
 
     def local_filter_fun(self, x, w):
         w = w.unsqueeze(0).repeat(x.size()[0], 1, 1)
@@ -276,23 +271,7 @@ class RNNLGGNet(nn.Module, LGGNet):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        out = self.Tception1(x)
-        y = self.Tception2(x)
-        out = torch.cat((out, y), dim=-1)
-        y = self.Tception3(x)
-        out = torch.cat((out, y), dim=-1)
-        out = self.BN_t(out)
-        out = self.OneXOneConv(out)
-        out = self.BN_t_(out)
-        out = out.permute(0, 2, 1, 3)
-        out = torch.reshape(out, (out.size(0), out.size(1), -1))
-        out = self.local_filter_fun(out, self.local_filter_weight)
-        out = self.aggregate.forward(out)
-        adj = self.get_adj(out)
-        out = self.bn(out)
-        out = self.GCN(out, adj)
-        out = self.bn_(out)
-        out = out.view(out.size()[0], -1)
+        out = self.common_forward(x)
 
         out = self.rnn(out.unsqueeze(1))[0]
         out = self.fc(out[:, -1, :])
