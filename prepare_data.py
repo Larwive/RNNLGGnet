@@ -12,7 +12,6 @@ class PrepareData:
         self.label = None
         self.model = None
         self.data_path = args.data_path
-        self.label_type = args.label_type
         self.original_order = ['EEG F3-A2', 'EEG F4-A1', 'EEG C3-A2', 'EEG C4-A1', 'EEG O1-A2', 'EEG O2-A1',
                                'EEG LOC-A2', 'EEG ROC-A1', 'EMG Chin', 'ECG EKG', 'EMG Left_Leg', 'EMG Right_Leg',
                                'Snoring Snore', 'Airflow', 'Resp Thorax', 'Resp Abdomen', 'SaO2 SpO2', 'Manual']
@@ -41,7 +40,7 @@ class PrepareData:
 
         Returns
         -------
-        The processed data will be saved './data_<data_format>_<dataset>/sub0.hdf'
+        The processed data will be saved './data_<dataset>/sub0.hdf'
         """
         for sub in subject_list:
             data_, label_ = self.load_data_per_subject(sub)
@@ -164,7 +163,7 @@ class PrepareData:
         None
         """
         save_path = os.getcwd()
-        data_type = 'data_{}_{}_{}'.format(self.args.data_format, self.args.dataset, self.args.label_type)
+        data_type = 'data_{}'.format(self.args.dataset)
         save_path = osp.join(save_path, data_type)
         if not os.path.exists(save_path):
             os.makedirs(save_path)

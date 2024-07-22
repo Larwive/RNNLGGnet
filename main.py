@@ -9,23 +9,20 @@ if __name__ == '__main__':
     parser.add_argument('--data-path', type=str, default='./RBDdata/')
     parser.add_argument('--subjects', type=int, default=27)
     parser.add_argument('--start-subject', type=int, default=0)
-    parser.add_argument('--label-type', type=str, default='L', choices=['A', 'V', 'D', 'L'])  # to remove
     parser.add_argument('--segment', type=int, default=4)  # Length in second
     parser.add_argument('--overlap', type=float, default=0)
     parser.add_argument('--sampling-rate', type=int, default=128)
     parser.add_argument('--scale-coefficient', type=float, default=1)
     parser.add_argument('--input-shape', type=tuple, default=(1, 32, 512))
-    parser.add_argument('--data-format', type=str, default='eeg')
     # Training Process ########
     parser.add_argument('--random-seed', type=int, default=2021)
     parser.add_argument('--max-epoch', type=int, default=200)
     # Number of consecutive epochs without increase in accuracy of validation set before early stopping
     parser.add_argument('--patient', type=int, default=20)
-    parser.add_argument('--patient-cmb', type=int, default=8)  # Unused ?
     parser.add_argument('--max-epoch-cmb', type=int, default=20)
     parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--learning-rate', type=float, default=1e-3)
-    parser.add_argument('--step-size', type=int, default=5)  # Unused ?
+    parser.add_argument('--step-size', type=int, default=10)
     parser.add_argument('--dropout', type=float, default=0.5)
 
     parser.add_argument('--save-path', default='./save/')
@@ -33,9 +30,11 @@ if __name__ == '__main__':
     parser.add_argument('--load-path-final', default='./save/final_model.pth')
     parser.add_argument('--gpu', default='0')
     parser.add_argument('--save-model', type=bool, default=True)
-    parser.add_argument('--load-model', type=bool, default=False)
     parser.add_argument('--kfold_rand_state', type=int, default=5)
     parser.add_argument('--gamma', type=float, default=0.99)
+
+    parser.add_argument('--rnn-hidden-size', type=int, default=10)
+    parser.add_argument('--rnn-num-layers', type=int, default=10)
     # Model Parameters ########
     parser.add_argument('--model', type=str, default='HOSPNet')
     parser.add_argument('--pool', type=int, default=16)

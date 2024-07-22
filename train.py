@@ -54,7 +54,7 @@ def set_up(args):
 def train_loop(args, model, train_loader, val_loader, subject, fold):
     save_name = '_sub' + str(subject) + '_fold' + str(fold)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=args.gamma)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
     loss_fn = nn.BCELoss()
 
@@ -154,7 +154,7 @@ def test(args, data, label, reproduce, subject, fold, phase: int = 1):
 
     if reproduce:
         model_name_reproduce = 'sub' + str(subject) + '_fold' + str(fold) + '.pth'
-        data_type = 'model_{}_{}'.format(args.data_format, args.label_type)
+        data_type = 'model'
         experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
         load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
         model.load_state_dict(torch.load(load_path_final))
@@ -177,7 +177,7 @@ def combine_train(args, data, label, subject, fold, target_acc):
     model.load_state_dict(torch.load(args.load_path))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate * 1e-1)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=args.gamma)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
     loss_fn = nn.CrossEntropyLoss()
 
@@ -204,7 +204,7 @@ def combine_train(args, data, label, subject, fold, target_acc):
             save_model('final_model')
             # save model here for reproduce
             model_name_reproduce = 'sub' + str(subject) + '_fold' + str(fold) + '.pth'
-            data_type = 'model_{}_{}'.format(args.data_format, args.label_type)
+            data_type = 'model'
             experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
             save_path = osp.join(args.save_path, experiment_setting, data_type)
             ensure_path(save_path)

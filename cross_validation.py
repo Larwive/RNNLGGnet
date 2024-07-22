@@ -48,14 +48,14 @@ class CrossValidation:
         :return: data and label
         """
         save_path = os.getcwd()
-        data_type = 'data_{}_{}'.format(self.args.data_format, self.args.dataset)
+        data_type = 'data_{}'.format(self.args.dataset)
         data, label = self.read_data(sub, save_path, data_type)
         print('>>> Data:{} Label:{}'.format(data.shape, label.shape))
         return data, label
 
     def load_all_except_one(self, excluded_sub: int, max_subject: int = 27, shuffle: bool = False):
         save_path = os.getcwd()
-        data_type = 'data_{}_{}_{}'.format(self.args.data_format, self.args.dataset, self.args.label_type)
+        data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
         for sub in range(max_subject):
             if sub == excluded_sub:
@@ -75,7 +75,7 @@ class CrossValidation:
 
     def load_all(self, max_subject: int = 27):
         save_path = os.getcwd()
-        data_type = 'data_{}_{}_{}'.format(self.args.data_format, self.args.dataset, self.args.label_type)
+        data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
         for sub in range(max_subject):
             data, label = self.read_data(sub, save_path, data_type)
@@ -287,7 +287,7 @@ class CrossValidation:
             val_loader = get_dataloader(data_test, label_test, self.args.batch_size)
             model = get_RNNLGG(self.args, excluded_sub, phase)
             optimizer = optim.Adam(model.parameters(), lr=0.001)
-            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=self.args.gamma)
+            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.args.step_size, gamma=self.args.gamma)
             criterion = nn.BCELoss()
             for sub in subject:
                 if sub == excluded_sub:

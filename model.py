@@ -58,11 +58,12 @@ class LGGNet(nn.Module):
             PowerLayer(dim=-1, length=pool, step=int(pool_step_rate * pool))
         )
 
-    def __init__(self, num_classes, input_size, sampling_rate, num_T,
+    def __init__(self, input_size, sampling_rate, num_T,
                  out_graph, dropout_rate, pool, pool_step_rate, idx_graph
                  ):
         # input_size: EEG frequency x channel x datapoint
         super(LGGNet, self).__init__()
+        self.input_size = input_size  # Added
         self.idx = idx_graph
         self.window = [0.5, 0.25, 0.125]
         self.pool = pool
@@ -108,7 +109,7 @@ class LGGNet(nn.Module):
 
         self.fc = nn.Sequential(
             nn.Dropout(p=dropout_rate),
-            nn.Linear(int(self.brain_area * out_graph), num_classes))
+            nn.Linear(int(self.brain_area * out_graph), 2))
 
         self.sigmoid = nn.Sigmoid()
 
@@ -210,9 +211,10 @@ class Aggregator:
 
 
 class RNNLGGNet(nn.Module, LGGNet):
-    def __init__(self, LGG_model, num_classes, rnn_input_size, hidden_size, num_layers, dropout_rate, phase: int = 2):
+    def __init__(self, LGG_model, hidden_size, num_layers, dropout_rate, phase: int = 2):
         super(RNNLGGNet, self).__init__()
         self.lgg = LGG_model
+        self.input_size = LGG_model.input_size
         self.idx = LGG_model.idx
         self.window = LGG_model.window
         self.pool = LGG_model.pool
@@ -266,14 +268,18 @@ class RNNLGGNet(nn.Module, LGGNet):
             for param in self.bn_.parameters():
                 param.requires_grad = False
 
-        self.rnn = nn.GRU(rnn_input_size, hidden_size, num_layers, batch_first=True, dropout=dropout_rate)
-        self.fc = nn.Linear(hidden_size, num_classes)
+        self.rnn = nn.GRU(self.get_size_common_forward(self.input_size), hidden_size, num_layers, batch_first=True, dropout=dropout_rate)
+        self.fc = nn.Linear(hidden_size, 2)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         out = self.common_forward(x)
-
         out = self.rnn(out.unsqueeze(1))[0]
         out = self.fc(out[:, -1, :])
         out = self.sigmoid(out)
         return out
+
+    def get_size_common_forward(self, input_size):
+        # input_size: frequency x channel x data point
+        data = torch.ones((1, input_size[0], input_size[1], int(input_size[2])))
+        return self.common_forward(data).size()

@@ -4,9 +4,10 @@ import h5py
 import numpy as np
 import pprint
 import random
-from model import *
 from torch.utils.data import DataLoader, Dataset
 from sklearn.metrics import confusion_matrix, accuracy_score, f1_score
+import os.path as osp
+from model import *
 
 
 class eegDataset(Dataset):
@@ -95,24 +96,23 @@ def get_model(args):
     idx_local_graph = list(np.array(h5py.File('num_chan_local_graph_{}.hdf'.format(args.graph_type), 'r')['data']))
     channels = sum(idx_local_graph)
     input_size = (args.input_shape[0], channels, args.input_shape[2])
-    model = LGGNet(num_classes=args.num_classes,
-                   input_size=input_size,
+    model = LGGNet(input_size=input_size,
                    sampling_rate=int(args.sampling_rate * args.scale_coefficient),
                    num_T=args.T, out_graph=args.hidden,
                    dropout_rate=args.dropout,
                    pool=args.pool, pool_step_rate=args.pool_step_rate,
                    idx_graph=idx_local_graph)
-    if args.load_model:  # Really useful ?
-        model.load_state_dict(torch.load(args.load_path.format(args.label_type)))
-        print("Previous model loaded.")
-
     return model
 
 
-def get_RNNLGG(args, excluded_subject: int, phase: int = 2):
+def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2):
+    model_name_reproduce = 'sub' + str(excluded_subject) + '_fold' + str(fold) + '.pth'
+    data_type = 'model'
+    experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
+    load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
     LGG_model = get_model(args)
-    LGG = LGG_model.load_state_dict(torch.load(args.load_path.format(excluded_subject)))  # TTTTT
-    model = RNNLGGNet(LGG, args.num_classes, args.rnn_input_size, args.rnn_hidden_size, args.rnn_num_layers,
+    LGG = LGG_model.load_state_dict(torch.load(load_path_final))
+    model = RNNLGGNet(LGG, args.rnn_hidden_size, args.rnn_num_layers,
                       args.rnn_dropout, phase=phase)
     return model
 
