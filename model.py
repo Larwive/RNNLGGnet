@@ -59,8 +59,8 @@ class LGGNet(nn.Module):
         )
 
     def __init__(self, num_classes, input_size, sampling_rate, num_T,
-                 out_graph, dropout_rate, pool, pool_step_rate, idx_graph,
-                 rnn_hidden_size, rnn_num_layers):
+                 out_graph, dropout_rate, pool, pool_step_rate, idx_graph
+                 ):
         # input_size: EEG frequency x channel x datapoint
         super(LGGNet, self).__init__()
         self.idx = idx_graph
@@ -110,15 +110,7 @@ class LGGNet(nn.Module):
             nn.Dropout(p=dropout_rate),
             nn.Linear(int(self.brain_area * out_graph), num_classes))
 
-        # RNN
-        self.lstm = nn.LSTM(32 * 8 * 8, rnn_hidden_size, rnn_num_layers, batch_first=True)
-
-        self.h0 = torch.zeros(self.num_layers, 1, self.hidden_size)
-        self.c0 = torch.zeros(self.num_layers, 1, self.hidden_size)
-
-        self.fc_rnn = nn.Sequential(
-            nn.Dropout(p=dropout_rate),
-            nn.Linear(int(self.brain_area * out_graph), 2))
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         y = self.Tception1(x)
@@ -139,10 +131,9 @@ class LGGNet(nn.Module):
         out = self.GCN(out, adj)
         out = self.bn_(out)
         out = out.view(out.size()[0], -1)
-        # out = self.fc(out)
+        out = self.fc(out)
 
-        out = self.lstm(out.unsqueeze(1), (self.h0, self.c0))
-        out = self.fc_rnn(out)
+        out = self.sigmoid(out)  # Added
         return out
 
     def get_size_temporal(self, input_size):
@@ -223,9 +214,10 @@ class Aggregator:
         return torch.mean(x, dim=dim)
 
 
-class RNNLGGNet(nn.Module):
-    def __init__(self, LGG_model, num_classes, rnn_input_size, hidden_size, num_layers, dropout_rate):
+class RNNLGGNet(nn.Module, LGGNet):
+    def __init__(self, LGG_model, num_classes, rnn_input_size, hidden_size, num_layers, dropout_rate, phase: int = 2):
         super(RNNLGGNet, self).__init__()
+        self.lgg = LGG_model
         self.idx = LGG_model.idx
         self.window = LGG_model.window
         self.pool = LGG_model.pool
@@ -253,8 +245,35 @@ class RNNLGGNet(nn.Module):
         # learn the global network of networks
         self.GCN = LGG_model.GCN
 
+        if phase == 2:
+            for param in self.Tception1.parameters():
+                param.requires_grad = False
+            for param in self.Tception2.parameters():
+                param.requires_grad = False
+            for param in self.Tception3.parameters():
+                param.requires_grad = False
+            for param in self.BN_t.parameters():
+                param.requires_grad = False
+            for param in self.OneXOneConv.parameters():
+                param.requires_grad = False
+            for param in self.BN_t_.parameters():
+                param.requires_grad = False
+            for param in self.local_filter_weight.parameters():
+                param.requires_grad = False
+            for param in self.local_filter_bias.parameters():
+                param.requires_grad = False
+            for param in self.global_adj.parameters():
+                param.requires_grad = False
+            for param in self.bn.parameters():
+                param.requires_grad = False
+            for param in self.GCN.parameters():
+                param.requires_grad = False
+            for param in self.bn_.parameters():
+                param.requires_grad = False
+
         self.rnn = nn.GRU(rnn_input_size, hidden_size, num_layers, batch_first=True, dropout=dropout_rate)
         self.fc = nn.Linear(hidden_size, num_classes)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         out = self.Tception1(x)
@@ -277,4 +296,5 @@ class RNNLGGNet(nn.Module):
 
         out = self.rnn(out.unsqueeze(1))[0]
         out = self.fc(out[:, -1, :])
+        out = self.sigmoid(out)
         return out

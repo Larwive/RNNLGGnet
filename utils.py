@@ -92,21 +92,28 @@ def pprint(x):
 
 
 def get_model(args):
-    if args.model == 'HOSPNet':
-        idx_local_graph = list(np.array(h5py.File('num_chan_local_graph_{}.hdf'.format(args.graph_type), 'r')['data']))
-        channels = sum(idx_local_graph)
-        input_size = (args.input_shape[0], channels, args.input_shape[2])
-        model = LGGNet(
-            input_size=input_size,
-            sampling_rate=int(args.sampling_rate * args.scale_coefficient),
-            num_T=args.T, out_graph=args.hidden,
-            dropout_rate=args.dropout,
-            pool=args.pool, pool_step_rate=args.pool_step_rate,
-            idx_graph=idx_local_graph)
-        if args.load_model:  # Really useful ?
-            model.load_state_dict(torch.load(args.load_path.format(args.label_type)))
-            print("Previous model loaded.")
+    idx_local_graph = list(np.array(h5py.File('num_chan_local_graph_{}.hdf'.format(args.graph_type), 'r')['data']))
+    channels = sum(idx_local_graph)
+    input_size = (args.input_shape[0], channels, args.input_shape[2])
+    model = LGGNet(num_classes=args.num_classes,
+                   input_size=input_size,
+                   sampling_rate=int(args.sampling_rate * args.scale_coefficient),
+                   num_T=args.T, out_graph=args.hidden,
+                   dropout_rate=args.dropout,
+                   pool=args.pool, pool_step_rate=args.pool_step_rate,
+                   idx_graph=idx_local_graph)
+    if args.load_model:  # Really useful ?
+        model.load_state_dict(torch.load(args.load_path.format(args.label_type)))
+        print("Previous model loaded.")
 
+    return model
+
+
+def get_RNNLGG(args, excluded_subject: int, phase: int = 2):
+    LGG_model = get_model(args)
+    LGG = LGG_model.load_state_dict(torch.load(args.load_path.format(excluded_subject)))  # TTTTT
+    model = RNNLGGNet(LGG, args.num_classes, args.rnn_input_size, args.rnn_hidden_size, args.rnn_num_layers,
+                      args.rnn_dropout, phase=phase)
     return model
 
 
@@ -142,5 +149,3 @@ def L2Loss(model, Lambda):
     w = torch.cat([x.view(-1) for x in model.parameters()])
     err = Lambda * torch.sum(w.pow(2))
     return err
-
-

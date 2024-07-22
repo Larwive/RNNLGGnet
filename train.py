@@ -1,10 +1,11 @@
 import os.path as osp
+import torch.optim as optim
 from utils import *
 
 device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
-def train_one_epoch(data_loader, net, loss_fn, optimizer):
+def train_one_epoch(data_loader, net, loss_fn, optimizer, scheduler):
     net.train()
     tl = Averager()
     pred_train = []
@@ -20,6 +21,7 @@ def train_one_epoch(data_loader, net, loss_fn, optimizer):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        scheduler.step()
         tl.add(loss.item())
     return tl.item(), pred_train, act_train
 
@@ -49,24 +51,12 @@ def set_up(args):
     torch.backends.cudnn.deterministic = True
 
 
-def train(args, data_train, label_train, data_val, label_val, subject, fold, phase: int = 1):
-    seed_all(args.random_seed)
+def train_loop(args, model, train_loader, val_loader, subject, fold):
     save_name = '_sub' + str(subject) + '_fold' + str(fold)
-    set_up(args)
-
-    train_loader = get_dataloader(data_train, label_train, args.batch_size)
-
-    val_loader = get_dataloader(data_val, label_val, args.batch_size)
-
-    model = get_model(args).to(device)
-    if phase == 1:
-        pass
-    elif phase == 2:
-        pass
-
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=args.gamma)
 
-    loss_fn = nn.CrossEntropyLoss()
+    loss_fn = nn.BCELoss()
 
     def save_model(name):
         previous_model = osp.join(args.save_path, '{}.pth'.format(name))
@@ -84,7 +74,7 @@ def train(args, data_train, label_train, data_val, label_val, subject, fold, pha
     for epoch in range(1, args.max_epoch + 1):
 
         loss_train, pred_train, act_train = train_one_epoch(
-            data_loader=train_loader, net=model, loss_fn=loss_fn, optimizer=optimizer)
+            data_loader=train_loader, net=model, loss_fn=loss_fn, optimizer=optimizer, scheduler=scheduler)
 
         acc_train, f1_train, _ = get_metrics(y_pred=pred_train, y_true=act_train)
         print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
@@ -124,13 +114,43 @@ def train(args, data_train, label_train, data_val, label_val, subject, fold, pha
 
     return trlog['max_acc'], trlog['F1']
 
+def train(args, data_train, label_train, data_val, label_val, subject, fold):
+    seed_all(args.random_seed)
+    set_up(args)
 
-def test(args, data, label, reproduce, subject, fold):
+    train_loader = get_dataloader(data_train, label_train, args.batch_size)
+
+    val_loader = get_dataloader(data_val, label_val, args.batch_size)
+
+    model = get_model(args).to(device)
+
+    return train_loop(args, model, train_loader, val_loader, subject, fold)
+
+
+def train_phase_2_3(args, data_train, label_train, data_val, label_val, subject, fold, phase: int = 2):
+    seed_all(args.random_seed)
+    set_up(args)
+
+    train_loader = get_dataloader(data_train, label_train, args.batch_size)
+
+    val_loader = get_dataloader(data_val, label_val, args.batch_size)
+
+    if phase == 2:
+        model = get_RNNLGG(args, subject, phase).to(device)
+    else:
+        model = get_RNNLGG(args, subject, phase).to(device)
+    return train_loop(args, model, train_loader, val_loader, subject, fold)
+
+
+def test(args, data, label, reproduce, subject, fold, phase: int = 1):
     set_up(args)
     seed_all(args.random_seed)
     test_loader = get_dataloader(data, label, args.batch_size)
 
-    model = get_model(args).to(device)
+    if phase == 1:
+        model = get_model(args).to(device)
+    else:
+        model = get_RNNLGG(args, subject, phase).to(device)
     loss_fn = nn.CrossEntropyLoss()
 
     if reproduce:
@@ -158,6 +178,7 @@ def combine_train(args, data, label, subject, fold, target_acc):
     model.load_state_dict(torch.load(args.load_path))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate * 1e-1)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=args.gamma)
 
     loss_fn = nn.CrossEntropyLoss()
 
@@ -173,7 +194,7 @@ def combine_train(args, data, label, subject, fold, target_acc):
 
     for epoch in range(1, args.max_epoch_cmb + 1):
         loss, pred, act = train_one_epoch(
-            data_loader=train_loader, net=model, loss_fn=loss_fn, optimizer=optimizer
+            data_loader=train_loader, net=model, loss_fn=loss_fn, optimizer=optimizer, scheduler=scheduler
         )
         acc, f1, _ = get_metrics(y_pred=pred, y_true=act)
         print('Stage 2 : epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'

@@ -4,6 +4,7 @@ from train import *
 from utils import Averager, ensure_path
 from sklearn.model_selection import KFold
 from functools import reduce
+import torch.optim as optim
 
 ROOT = os.getcwd()
 
@@ -56,7 +57,7 @@ class CrossValidation:
         for sub in range(max_subject):
             if sub == excluded_sub:
                 continue
-            sub_code = 'sub' + str(sub) + '.hdf'
+            sub_code = 'sub{}.hdf'.format(sub)
             path = osp.join(save_path, data_type, sub_code)
             dataset = h5py.File(path, 'r')
             datas.append(np.array(dataset['data']))
@@ -68,6 +69,20 @@ class CrossValidation:
             permutation = np.random.permutation(len(datas))
             datas = datas[permutation]
             labels = labels[permutation]
+
+        return datas, labels
+
+    def load_all(self, max_subject: int = 27):
+        save_path = os.getcwd()
+        data_type = 'data_{}_{}_{}'.format(self.args.data_format, self.args.dataset, self.args.label_type)
+        datas, labels = [], []
+        for sub in range(max_subject):
+            sub_code = 'sub{}.hdf'.format(sub)
+            path = osp.join(save_path, data_type, sub_code)
+            dataset = h5py.File(path, 'r')
+            datas.append(np.array(dataset['data']))
+            labels.append(np.array(dataset['label']))
+            print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
 
         return datas, labels
 
@@ -123,23 +138,24 @@ class CrossValidation:
         :return:
         """
 
-        if self.args.dataset == 'HOSP':
+        """
+        We want to do subject-wise fold, so the idx_train/idx_test is for
+        trials.
+        data: (trial, segment, 1, chan, datapoint)
+        To use the normalization function, we should change the dimension from
+        (trial, segment, 1, chan, datapoint) to (trial*segments, 1, chan, datapoint)
+        """
+        data_train = np.concatenate(train_data, axis=0)
+        label_train = np.concatenate(train_label, axis=0)
+        data_test = test_data
+        label_test = test_label
+        if len(test_data.shape) > 4:
             """
-            We want to do trial-wise 10-fold, so the idx_train/idx_test is for
-            trials.
-            data: (trial, segment, 1, chan, datapoint)
-            To use the normalization function, we should change the dimension from
-            (trial, segment, 1, chan, datapoint) to (trial*segments, 1, chan, datapoint)
+            When leave one trial out is conducted, the test data will be (segments, 1, chan, datapoint), hence,
+            no need to concatenate the first dimension to get trial*segments
             """
-            data_train = np.concatenate(train_data, axis=0)
-            label_train = np.concatenate(train_label, axis=0)
-            if len(test_data.shape) > 4:
-                """
-                When leave one trial out is conducted, the test data will be (segments, 1, chan, datapoint), hence,
-                no need to concatenate the first dimension to get trial*segments
-                """
-                data_test = np.concatenate(test_data, axis=0)
-                label_test = np.concatenate(test_label, axis=0)
+            data_test = np.concatenate(test_data, axis=0)
+            label_test = np.concatenate(test_label, axis=0)
 
         data_train, data_test = self.normalize(train_data=data_train, test_data=data_test)
         # Prepare the data format for training the model using PyTorch
@@ -287,13 +303,19 @@ class CrossValidation:
         #                                                             mF1, mACC_val, mF1_val)
         # self.log2txt(results)
 
-    def subject_fold_cv_phase_2(self, subject=None, shuffle=False, rand_state=None):
+    def subject_fold_cv_phase_2_3(self, subject=None, phase: int = 2):
         """
         this function achieves n-fold cross-validation
         :param subject: how many subject to load
-        :param shuffle:
-        :param rand_state:
+        :param phase:
         """
+
+        def save_model(name):
+            previous_model = osp.join(self.args.save_path, 'RNN_LGG_{}.pth'.format(name))
+            if os.path.exists(previous_model):
+                os.remove(previous_model)
+            torch.save(model.state_dict(), osp.join(self.args.save_path, 'RNN_LGG_{}.pth'.format(name)))
+
         # Train and evaluate the model subject by subject
         if subject is None:
             subject = [0]
@@ -302,46 +324,106 @@ class CrossValidation:
         ttf = []  # total test f1
         tvf = []  # total validation f1
 
-        for sub in subject:
-            data_train, label_train = self.load_all_except_one(sub, shuffle=shuffle)
-            data_test, label_test = self.load_per_subject(sub)
-            va_val = Averager()
-            vf_val = Averager()
-            preds, acts = [], []
-            print('Subject fold: {} excluded'.format(sub))
-            data_train, label_train, data_test, label_test = self.prepare_data_subject_fold(
-                train_data=data_train, train_label=label_train, test_data=data_test, test_label=label_test)
+        data, label = self.load_all()
 
-            if self.args.reproduce:
-                acc_test, pred, act = test(args=self.args, data=data_test, label=label_test,
-                                           reproduce=self.args.reproduce,
-                                           subject=sub, fold=0, phase=2)
+        for excluded_sub in subject:
+            data_test = data[excluded_sub]
+            label_test = label[excluded_sub]
+            val_loader = get_dataloader(data_test, label_test, self.args.batch_size)
+            model = get_RNNLGG(self.args, excluded_sub, phase)
+            optimizer = optim.Adam(model.parameters(), lr=0.001)
+            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=self.args.gamma)
+            criterion = nn.BCELoss()
+            for sub in subject:
+                if sub == excluded_sub:
+                    continue
+
+                model.zero_grad()
+                optimizer.zero_grad()
+
+                data_train = data[sub]
+                label_train = label[sub]
+
+                va_val = Averager()
+                vf_val = Averager()
+                preds, acts = [], []
+                print('Subject fold: {} excluded'.format(sub))
+                data_train, label_train, data_test, label_test = self.prepare_data_subject_fold(
+                    train_data=data_train, train_label=label_train, test_data=data_test, test_label=label_test)
+                train_loader = get_dataloader(data_train, label_train, batch_size=self.args.batch_size)
                 acc_val = 0
                 f1_val = 0
-            else:
-                # to train new models
-                acc_val, f1_val = self.first_stage(data=data_train, label=label_train,
-                                                   subject=sub, fold=0, rand_state=rand_state, phase=2)
+                pred, act = None, None
+                if self.args.reproduce:
+                    acc_test, pred, act = test(args=self.args, data=data_test, label=label_test,
+                                               reproduce=self.args.reproduce,
+                                               subject=sub, fold=0, phase=phase)
 
-                combine_train(args=self.args,
-                              data=data_train, label=label_train,
-                              subject=sub, fold=0, target_acc=1, phase=2)
+                else:
+                    trlog = {'args': vars(self.args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [],
+                             'max_acc': 0.0,
+                             'F1': 0.0}
+                    timer = Timer()
+                    patient = self.args.patient
+                    counter = 0
 
-                acc_test, pred, act = test(args=self.args, data=data_test, label=label_test,
-                                           reproduce=self.args.reproduce,
-                                           subject=sub, fold=0, phase=2)
-            va_val.add(acc_val)
-            vf_val.add(f1_val)
-            preds.extend(pred)
-            acts.extend(act)
+                    for epoch in range(self.args.phase_2_epochs):
+                        tl = Averager()
+                        pred_train = []
+                        act_train = []
+                        for data, label in train_loader:
+                            out = model(data)
+                            pred_train.extend(out.data.tolist())
+                            act_train.extend(label.data.tolist())
 
-            tva.append(va_val.item())
-            tvf.append(vf_val.item())
-            acc, f1, _ = get_metrics(y_pred=preds, y_true=acts)
-            tta.append(acc)
-            ttf.append(f1)
-            result = '{},{}'.format(tta[-1], f1)
-            self.log2txt(result)
+                            loss = criterion(out, label)
+                            tl.add(loss.item())
+                            loss.backward()
+                            optimizer.step()
+                            scheduler.step()
+                        acc_train, f1_train, _ = get_metrics(y_pred=pred_train, y_true=act_train)
+                        print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
+                              .format(epoch, tl.item(), acc_train, f1_train))
+
+                        loss_val, pred_val, act_val = predict(
+                            data_loader=val_loader, net=model, loss_fn=criterion
+                        )
+                        acc_val, f1_val, _ = get_metrics(y_pred=pred_val, y_true=act_val)
+                        print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.
+                              format(epoch, loss_val, acc_val, f1_val))
+
+                        if acc_val >= trlog['max_acc']:
+                            trlog['max_acc'] = acc_val
+                            trlog['F1'] = f1_val
+                            save_model('candidate')
+                            counter = 0
+                        else:
+                            counter += 1
+                            if counter >= patient:
+                                print('early stopping')
+                                break
+
+                        trlog['train_loss'].append(tl.item())
+                        trlog['train_acc'].append(acc_train)
+                        trlog['val_loss'].append(loss_val)
+                        trlog['val_acc'].append(acc_val)
+
+                        print(
+                            'ETA:{}/{} SUB:{}'.format(timer.measure(), timer.measure(epoch / self.args.phase_2_epochs),
+                                                      subject))
+
+                va_val.add(acc_val)
+                vf_val.add(f1_val)
+                preds.extend(pred)
+                acts.extend(act)
+
+                tva.append(va_val.item())
+                tvf.append(vf_val.item())
+                acc, f1, _ = get_metrics(y_pred=preds, y_true=acts)
+                tta.append(acc)
+                ttf.append(f1)
+                result = '{},{}'.format(tta[-1], f1)
+                self.log2txt(result)
 
         # prepare final report
         tta = np.array(tta)
@@ -358,11 +440,8 @@ class CrossValidation:
         print('Final: test mean ACC:{} std:{}'.format(mACC, std))
         print('Final: val mean ACC:{} std:{}'.format(mACC_val, std_val))
         print('Final: val mean F1:{}'.format(mF1_val))
-        # results = 'test mAcc={} mF1={} val mAcc={} val F1={}'.format(mACC,
-        #                                                             mF1, mACC_val, mF1_val)
-        # self.log2txt(results)
 
-    def first_stage(self, data, label, subject, fold, rand_state=None, phase:int = 1):
+    def first_stage(self, data, label, subject, fold, rand_state=None):
         """
         this function achieves n-fold-CV to:
             1. select hyperparameters on training data
@@ -392,8 +471,8 @@ class CrossValidation:
                                     data_val=data_val,
                                     label_val=label_val,
                                     subject=subject,
-                                    fold=fold,
-                                    phase=phase)
+                                    fold=fold)
+
             va.add(acc_val)
             vf.add(F1_val)
             va_item.append(acc_val)

@@ -35,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--save-model', type=bool, default=True)
     parser.add_argument('--load-model', type=bool, default=False)
     parser.add_argument('--kfold_rand_state', type=int, default=5)
+    parser.add_argument('--gamma', type=float, default=0.99)
     ######## Model Parameters ########
     parser.add_argument('--model', type=str, default='HOSPNet')
     parser.add_argument('--pool', type=int, default=16)
@@ -53,6 +54,5 @@ if __name__ == '__main__':
     seed_all(args.random_seed)
     cv.subject_fold_CV(subject=sub_to_run, rand_state=args.kfold_rand_state)
 
-    cv.subject_fold_cv_phase_2(subject=sub_to_run, rand_state=args.kfold_rand_state)
-
-    cv.subject_fold_cv_phase_3(subject=sub_to_run, rand_state=args.kfold_rand_state)
+    cv.subject_fold_cv_phase_2_3(subject=sub_to_run, phase=2)
+    cv.subject_fold_cv_phase_2_3(subject=sub_to_run, phase=3)
