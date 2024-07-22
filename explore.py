@@ -9,9 +9,9 @@ count = 0
 chann_dict = {}
 for dirpath, dirnames, filenames in os.walk('./RBDdata/'):
     for filename in filenames:
-        if filename.endswith(".fif"):
+        if filename.endswith(".edf"):
             count += 1
-            raw = mne.io.read_raw_fif(os.path.join(dirpath, filename), verbose=False)
+            raw = mne.io.read_raw_edf(os.path.join(dirpath, filename), verbose=False)
             if first:
                 inter = raw.ch_names
                 inter_events = list(list(mne.events_from_annotations(raw, verbose=0))[1].keys())
