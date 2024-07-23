@@ -30,17 +30,13 @@ class PrepareData:
                    'Resp Thorax', 'Resp Abdomen', 'SaO2 SpO2', 'Manual']
         self.graph_type = args.graph_type
 
-    def run(self, subject_list, split=False, expand=True):
+    def run(self, subject_list, split: bool = False, expand: bool = True) -> None:
         """
-        Parameters
-        ----------
-        subject_list: the subjects need to be processed
-        split: (bool) whether to split one trial's data into shorter segment
-        expand: (bool) whether to add an empty dimension for CNN
-
-        Returns
-        -------
         The processed data will be saved './data_<dataset>/sub0.hdf'
+        :param subject_list: the subjects that need to be processed
+        :param split: whether to split one trial's data into shorter segment
+        :param expand: whether to add an empty dimension for CNN
+        :return: None
         """
         for sub in subject_list:
             data_, label_ = self.load_data_per_subject(sub)
@@ -61,45 +57,35 @@ class PrepareData:
             print('----------------------')
             self.save(data_, label_, sub)
 
-    def load_data_per_subject(self, sub):
+    def load_data_per_subject(self, sub: int) -> tuple[np.ndarray, np.ndarray]:
         """
         This function loads the target subject's original file
-        Parameters
-        ----------
-        sub: which subject to load
-
-        Returns
-        -------
-        data: (40, 32, 7680) label: (40, 4)
+        :param sub: which subject to load
+        :return: data: (??, ??, ????) label: (??, ?)
         """
         sub += 1
         if sub < 10:
-            sub_code = str('s0' + str(sub) + '.dat')
+            sub_code = 's0{}.dat'.format(sub)
         else:
-            sub_code = str('s' + str(sub) + '.dat')
+            sub_code = 's{}.dat'.format(sub)
 
         subject_path = os.path.join(self.data_path, sub_code)
         subject = cPickle.load(open(subject_path, 'rb'), encoding='latin1')
         label = subject['labels']
-        data: np.ndarray = subject['data'][:, 0:32, 3 * 128:]  # Excluding the first 3s of baseline
-        #   data: 40 x 32 x 7680
-        #   label: 40 x 4
+        data: np.ndarray = subject['data']
+        #   data: ?? x ?? x ????
+        #   label: ?? x ?
         # reorder the EEG channel to build the local-global graphs
         data = self.reorder_channel(data=data, graph=self.graph_type)
-        print('data:' + str(data.shape) + ' label:' + str(label.shape))
+        print('data:{} label:{}'.format(data.shape, label.shape))
         return data, label
 
-    def reorder_channel(self, data: np.ndarray, graph):
+    def reorder_channel(self, data: np.ndarray, graph: str) -> np.ndarray:
         """
         This function reorder the channel according to different graph designs
-        Parameters
-        ----------
-        data: (trial, channel, data)
-        graph: graph type
-
-        Returns
-        -------
-        reordered data: (trial, channel, data)
+        :param data: (trial, channel, data)
+        :param graph: graph type
+        :return: reordered data: (trial, channel, data)
         """
         if graph == 'fro':
             graph_idx = self.graph_fro
@@ -134,41 +120,26 @@ class PrepareData:
     @staticmethod
     def label_selection(label):
         """
-        This function: 1. selects which dimension of labels to use
-                       2. create binary label
-        Parameters
-        ----------
-        label: (trial, 4)
-
-        Returns
-        -------
-        label: (trial,)
+        Selects which dimension of labels to use and create binary label.
+        :param label: (trial, 4)
+        :return: (trial,)
         """
-        label = label[:, 1]  # TTTTT
-        label = np.where(label <= 5, 0, label)
-        label = np.where(label > 5, 1, label)
-        return label
+        return label[:, 1]  # TTTTT
 
-    def save(self, data, label, sub) -> None:
+    def save(self, data, label, sub: int) -> None:
         """
         This function save the processed data into target folder
-        Parameters
-        ----------
-        data: the processed data
-        label: the corresponding label
-        sub: the subject ID
-
-        Returns
-        -------
-        None
+        :param data: the processed data
+        :param label: the corresponding label
+        :param sub: the subject ID
+        :return: None
         """
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         save_path = osp.join(save_path, data_type)
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-        else:
-            pass
+
         name = 'sub{}.hdf'.format(sub)
         save_path = osp.join(save_path, name)
         dataset = h5py.File(save_path, 'w')
@@ -177,21 +148,17 @@ class PrepareData:
         dataset.close()
 
     @staticmethod
-    def split(data: np.ndarray, label, segment_length=1, overlap=0, sampling_rate=256) -> tuple[np.ndarray, np.ndarray]:
+    def split(data: np.ndarray, label, segment_length: float = 1, overlap: float = 0, sampling_rate: int = 256) -> \
+            tuple[np.ndarray, np.ndarray]:
         """
         This function split one trial's data into shorter segments
-        Parameters
-        ----------
-        data: (trial, f, channel, data)
-        label: (trial,)
-        segment_length: how long each segment is (e.g. 1s, 2s,...)
-        overlap: overlap rate
-        sampling_rate: sampling rate
-
-        Returns
-        -------
-        data:(trial, num_segment, f, channel, segment_length)
-        label:(trial, num_segment,)
+        :param data: (trial, f, channel, data)
+        :param label: (trial,)
+        :param segment_length: how long each segment is in seconds
+        :param overlap: overlap rate
+        :param sampling_rate: sampling rate
+        :return: data: (trial, num_segment, f, channel, segment_length)
+        label: (trial, num_segment,)
         """
         data_shape = data.shape
         step = int(segment_length * sampling_rate * (1 - overlap))

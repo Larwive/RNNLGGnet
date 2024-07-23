@@ -1,4 +1,3 @@
-import os.path as osp
 import torch.optim as optim
 from utils import *
 

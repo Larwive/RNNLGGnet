@@ -6,7 +6,7 @@ import numpy as np
 warnings.filterwarnings("ignore")
 
 
-def update_channels(raw: mne.io.Raw) -> mne.io.Raw:
+def update_channels(raw: mne.io.BaseRaw) -> mne.io.BaseRaw:
     channels_to_remove = {
         'Air cannula',
         'Air cannual',
@@ -36,9 +36,9 @@ def update_channels(raw: mne.io.Raw) -> mne.io.Raw:
     return raw
 
 
-def remove_muscle_artifacts(raw: mne.io.Raw, n_components: int = 15, method: str = "picard",
+def remove_muscle_artifacts(raw: mne.io.BaseRaw, n_components: int = 15, method: str = "picard",
                             max_iter: str = "auto", random_state: int = 97, montage: str = "",
-                            plot: bool = False) -> mne.io.Raw:
+                            plot: bool = False) -> mne.io.BaseRaw:
     """
     Remove muscle artifacts using ICA.
     :param raw: Raw data to remove artifacts from.
@@ -72,7 +72,7 @@ def remove_muscle_artifacts(raw: mne.io.Raw, n_components: int = 15, method: str
     return raw
 
 
-def normalize(raw: mne.io.Raw) -> None:
+def normalize(raw: mne.io.BaseRaw) -> None:
     data, times = raw[:, :]
     data = data.T  # Shape should be (n_samples, n_channels)
 
@@ -83,7 +83,7 @@ def normalize(raw: mne.io.Raw) -> None:
     raw._data = normalized_data.T
 
 
-def preprocess_raw(raw: mne.io.Raw) -> mne.io.Raw:
+def preprocess_raw(raw: mne.io.BaseRaw) -> mne.io.BaseRaw:
     raw = update_channels(raw)
     raw.filter(l_freq=0.5, h_freq=50)
     raw = remove_muscle_artifacts(raw)
