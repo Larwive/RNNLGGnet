@@ -109,7 +109,10 @@ class LGGNet(nn.Module):
 
         self.fc = nn.Sequential(
             nn.Dropout(p=dropout_rate),
-            nn.Linear(int(self.brain_area * out_graph), 2))
+            nn.Linear(int(self.brain_area * out_graph), 5),
+            nn.Dropout(p=dropout_rate),
+            nn.Linear(5, 1)
+        )
 
         self.sigmoid = nn.Sigmoid()
 
@@ -269,7 +272,12 @@ class RNNLGGNet(nn.Module, LGGNet):
                 param.requires_grad = False
 
         self.rnn = nn.GRU(self.get_size_common_forward(self.input_size), hidden_size, num_layers, batch_first=True, dropout=dropout_rate)
-        self.fc = nn.Linear(hidden_size, 2)
+        self.fc = nn.Sequential(
+            nn.Dropout(p=dropout_rate),
+            nn.Linear(hidden_size, 5),
+            nn.Dropout(p=dropout_rate),
+            nn.Linear(5, 1)
+        )
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
