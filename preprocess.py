@@ -2,11 +2,12 @@ import mne
 import os
 import warnings
 import numpy as np
+from mne.io import RawArray
 
 warnings.filterwarnings("ignore")
 
 
-def update_channels(raw: mne.io.BaseRaw) -> mne.io.BaseRaw:
+def update_channels(raw: mne.io.BaseRaw, verbose: int = 1) -> mne.io.BaseRaw:
     channels_to_remove = {
         'Air cannula',
         'Air cannual',
@@ -26,13 +27,16 @@ def update_channels(raw: mne.io.BaseRaw) -> mne.io.BaseRaw:
 
     if len(channels_to_remove - set(raw.ch_names)) < len(channels_to_remove):
         subset = list(set(raw.ch_names) - channels_to_remove)
-        print(raw.ch_names)
-        print(subset)
-        raw = raw.pick(subset)
+        if verbose > 0:
+            print(raw.ch_names)
+            print(subset)
+        raw = raw.pick(subset, verbose=verbose)
 
     if len(renames.keys() - set(raw.ch_names)) < len(renames):
-        print(raw.ch_names)
-        raw = raw.rename_channels(renames)
+        sub_renames = {key: renames[key] for key in set(raw.ch_names) & renames.keys()}
+        if verbose > 0:
+            print(raw.ch_names)
+        raw = raw.rename_channels(sub_renames, verbose=verbose)
     return raw
 
 
@@ -72,24 +76,23 @@ def remove_muscle_artifacts(raw: mne.io.BaseRaw, n_components: int = 15, method:
     return raw
 
 
-def normalize(raw: mne.io.BaseRaw) -> None:
-    data, times = raw[:, :]
-    data = data.T  # Shape should be (n_samples, n_channels)
+def normalize(raw: mne.io.BaseRaw) -> RawArray:
+    data = raw.get_data()
 
-    mean = np.mean(data, axis=0)
-    std = np.std(data, axis=0)
-    normalized_data = (data - mean) / std
+    # Normalize each channel to have zero mean and unit variance
+    normalized_data = (data - np.mean(data, axis=1, keepdims=True)) / np.std(data, axis=1, keepdims=True)
 
-    raw._data = normalized_data.T
+    # Create a new Raw object with normalized data
+    return mne.io.RawArray(normalized_data, raw.info, verbose=0)
 
 
 def preprocess_raw(raw: mne.io.BaseRaw) -> mne.io.BaseRaw:
-    raw = update_channels(raw)
-    raw.filter(l_freq=0.5, h_freq=50)
-    raw = remove_muscle_artifacts(raw)
+    raw = update_channels(raw, verbose=0)
+    raw.filter(l_freq=0.5, h_freq=50, verbose=0)
+    #raw = remove_muscle_artifacts(raw)
 
-    raw.resample(128)
-    normalize(raw)
+    raw.resample(128, verbose=0)
+    raw = normalize(raw)
     return raw
 
 
