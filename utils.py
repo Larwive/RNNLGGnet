@@ -15,10 +15,10 @@ class eegDataset(Dataset):
     # y_tensor: (sample,) type = torch.tensor
 
     def __init__(self, x_tensor, y_tensor):
-        self.x = x_tensor
-        self.y = y_tensor
+        self.x = torch.tensor(x_tensor, dtype=torch.float32)
+        self.y = torch.tensor(y_tensor, dtype=torch.float32)
 
-        assert self.x.size(0) == self.y.size(0)
+        assert self.x.shape[0] == self.y.shape[0]
 
     def __getitem__(self, index):
         return self.x[index], self.y[index]

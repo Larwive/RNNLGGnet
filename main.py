@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--random-seed', type=int, default=2021)
     parser.add_argument('--max-epoch', type=int, default=200)
     # Number of consecutive epochs without increase in accuracy of validation set before early stopping
-    parser.add_argument('--patient', type=int, default=20)
+    parser.add_argument('--patient', type=int, default=5)
     parser.add_argument('--max-epoch-cmb', type=int, default=20)
     parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--learning-rate', type=float, default=1e-3)

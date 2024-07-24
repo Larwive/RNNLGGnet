@@ -14,7 +14,8 @@ def train_one_epoch(data_loader, net, loss_fn, optimizer, scheduler):
 
         out = net(x_batch)
         loss = loss_fn(out, y_batch)
-        _, pred = torch.max(out, 1)
+        #_, pred = torch.max(out)
+        pred = (out >= .5).int()
         pred_train.extend(pred.data.tolist())
         act_train.extend(y_batch.data.tolist())
         optimizer.zero_grad()
@@ -36,7 +37,8 @@ def predict(data_loader, net, loss_fn):
 
             out = net(x_batch)
             loss = loss_fn(out, y_batch)
-            _, pred = torch.max(out, 1)
+            #_, pred = torch.max(out, 1)
+            pred = (out >= .5).int()
             vl.add(loss.item())
             pred_val.extend(pred.data.tolist())
             act_val.extend(y_batch.data.tolist())
@@ -115,6 +117,9 @@ def train_loop(args, model, train_loader, val_loader, subject, fold):
 def train(args, data_train, label_train, data_val, label_val, subject, fold):
     seed_all(args.random_seed)
     set_up(args)
+
+    data_train = np.expand_dims(data_train, axis=1)  # Maybe try to avoid this by fixing dimensions before
+    data_val = np.expand_dims(data_val, axis=1)  # Same
 
     train_loader = get_dataloader(data_train, label_train, args.batch_size)
 

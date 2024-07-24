@@ -145,7 +145,7 @@ class LGGNet(nn.Module):
         out = self.fc(out)
 
         out = self.sigmoid(out)  # Added
-        return out
+        return out.squeeze(1)
 
     def get_size_temporal(self, input_size):
         # input_size: frequency x channel x data point
