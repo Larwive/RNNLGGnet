@@ -7,6 +7,20 @@ from utils import Averager, ensure_path
 ROOT = os.getcwd()
 
 
+def subject_fold(subjects, rate: float):
+    """
+
+    :param subjects:
+    :param rate:
+    :return:
+    """
+    group_size = int(len(subjects) * rate)
+    current = group_size
+    while current < len(subjects):
+        yield subjects[max(0, current - group_size):min(len(subjects), current)]
+        current += group_size
+
+
 class CrossValidation:
     def __init__(self, args):
         self.args = args
@@ -60,6 +74,44 @@ class CrossValidation:
         for sub in range(max_subject):
             if sub == excluded_sub:
                 continue
+            data, label = self.read_data(sub, save_path, data_type)
+            datas.append(data)
+            labels.append(label)
+            print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
+        datas = reduce(lambda x, y: np.concatenate((x, y), axis=1), datas)
+        labels = reduce(lambda x, y: np.concatenate((x, y), axis=1), labels)
+        if shuffle:
+            permutation = np.random.permutation(len(datas))
+            datas = datas[permutation]
+            labels = labels[permutation]
+
+        return datas, labels
+
+    def load_all_except_some(self, excluded_subs, max_subject: int = 19, shuffle: bool = False):
+        save_path = os.getcwd()
+        data_type = 'data_{}'.format(self.args.dataset)
+        datas, labels = [], []
+        for sub in range(max_subject):
+            if sub in excluded_subs:
+                continue
+            data, label = self.read_data(sub, save_path, data_type)
+            datas.append(data)
+            labels.append(label)
+            print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
+        datas = reduce(lambda x, y: np.concatenate((x, y), axis=1), datas)
+        labels = reduce(lambda x, y: np.concatenate((x, y), axis=1), labels)
+        if shuffle:
+            permutation = np.random.permutation(len(datas))
+            datas = datas[permutation]
+            labels = labels[permutation]
+
+        return datas, labels
+
+    def load_subjects(self, subjects, shuffle: bool = False):
+        save_path = os.getcwd()
+        data_type = 'data_{}'.format(self.args.dataset)
+        datas, labels = [], []
+        for sub in subjects:
             data, label = self.read_data(sub, save_path, data_type)
             datas.append(data)
             labels.append(label)
@@ -210,7 +262,7 @@ class CrossValidation:
 
         return train_data, train_label, val, val_label
 
-    def subject_fold_CV(self, subject=None, shuffle=False, rand_state=None):
+    def subject_fold_CV(self, subject=None, shuffle=False, rand_state=None, rate: float = .3):
         """
         this function achieves n-fold cross-validation
         :param subject: how many subject to load
@@ -225,9 +277,10 @@ class CrossValidation:
         ttf = []  # total test f1
         tvf = []  # total validation f1
 
-        for sub in subject:
-            data_train, label_train = self.load_all_except_one(sub, shuffle=shuffle)
-            data_test, label_test = self.load_per_subject(sub)
+        for subs in subject_fold(subject, rate):
+            sub = subs[0]
+            data_train, label_train = self.load_all_except_some(subs, shuffle=shuffle)
+            data_test, label_test = self.load_subjects(subs)
             va_val = Averager()
             vf_val = Averager()
             preds, acts = [], []
