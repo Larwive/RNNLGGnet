@@ -118,11 +118,7 @@ def train(args, data_train, label_train, data_val, label_val, subject, fold):
     seed_all(args.random_seed)
     set_up(args)
 
-    data_train = np.expand_dims(data_train, axis=1)  # Maybe try to avoid this by fixing dimensions before
-    data_val = np.expand_dims(data_val, axis=1)  # Same
-
     train_loader = get_dataloader(data_train, label_train, args.batch_size)
-
     val_loader = get_dataloader(data_val, label_val, args.batch_size)
 
     model = get_model(args).to(device)
@@ -135,7 +131,6 @@ def train_phase_2_3(args, data_train, label_train, data_val, label_val, subject,
     set_up(args)
 
     train_loader = get_dataloader(data_train, label_train, args.batch_size)
-
     val_loader = get_dataloader(data_val, label_val, args.batch_size)
 
     if phase == 2:
@@ -148,13 +143,14 @@ def train_phase_2_3(args, data_train, label_train, data_val, label_val, subject,
 def test(args, data, label, reproduce, subject, fold, phase: int = 1):
     set_up(args)
     seed_all(args.random_seed)
+
     test_loader = get_dataloader(data, label, args.batch_size)
 
     if phase == 1:
         model = get_model(args).to(device)
     else:
         model = get_RNNLGG(args, subject, phase).to(device)
-    loss_fn = nn.CrossEntropyLoss()
+    loss_fn = nn.BCELoss()  # TODO: Consider nn.BCEWithLogitsLoss() ?
 
     if reproduce:
         model_name_reproduce = 'sub' + str(subject) + '_fold' + str(fold) + '.pth'
@@ -176,6 +172,7 @@ def combine_train(args, data, label, subject, fold, target_acc):
     save_name = '_sub' + str(subject) + '_fold' + str(fold)
     set_up(args)
     seed_all(args.random_seed)
+
     train_loader = get_dataloader(data, label, args.batch_size)
     model = get_model(args).to(device)
     model.load_state_dict(torch.load(args.load_path))

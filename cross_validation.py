@@ -358,6 +358,10 @@ class CrossValidation:
                 print('Subject fold: {} excluded'.format(sub))
                 data_train, label_train, data_test, label_test = self.prepare_data_subject_fold(
                     train_data=data_train, train_label=label_train, test_data=data_test, test_label=label_test)
+
+                data_train = np.expand_dims(data_train, axis=1)
+                data_test = np.expand_dims(data_test, axis=1)
+
                 train_loader = get_dataloader(data_train, label_train, batch_size=self.args.batch_size)
                 acc_val = 0
                 f1_val = 0
