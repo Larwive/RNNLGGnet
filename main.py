@@ -6,14 +6,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Data ########
     parser.add_argument('--dataset', type=str, default='HOSP')
-    parser.add_argument('--data-path', type=str, default='./RBDdata/')
-    parser.add_argument('--subjects', type=int, default=27)
+    parser.add_argument('--data-path', type=str, default='./RBDdata/dat/')
+    parser.add_argument('--subjects', type=int, default=19)
     parser.add_argument('--start-subject', type=int, default=0)
     parser.add_argument('--segment', type=int, default=4)  # Length in second
     parser.add_argument('--overlap', type=float, default=0)
     parser.add_argument('--sampling-rate', type=int, default=128)
     parser.add_argument('--scale-coefficient', type=float, default=1)
-    parser.add_argument('--input-shape', type=tuple, default=(1, 32, 512))
+    parser.add_argument('--input-shape', type=tuple, default=(1, 17, 512))
     # Training Process ########
     parser.add_argument('--random-seed', type=int, default=2021)
     parser.add_argument('--max-epoch', type=int, default=200)

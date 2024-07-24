@@ -53,7 +53,7 @@ class CrossValidation:
         print('>>> Data:{} Label:{}'.format(data.shape, label.shape))
         return data, label
 
-    def load_all_except_one(self, excluded_sub: int, max_subject: int = 27, shuffle: bool = False):
+    def load_all_except_one(self, excluded_sub: int, max_subject: int = 19, shuffle: bool = False):
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
@@ -64,8 +64,8 @@ class CrossValidation:
             datas.append(data)
             labels.append(label)
             print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
-        datas = reduce(lambda x, y: np.concatenate((x, y), axis=0), datas)
-        labels = reduce(lambda x, y: np.concatenate((x, y), axis=0), labels)
+        datas = reduce(lambda x, y: np.concatenate((x, y), axis=1), datas)
+        labels = reduce(lambda x, y: np.concatenate((x, y), axis=1), labels)
         if shuffle:
             permutation = np.random.permutation(len(datas))
             datas = datas[permutation]
@@ -140,7 +140,7 @@ class CrossValidation:
             """
             data_test = np.concatenate(data_test, axis=0)
             label_test = np.concatenate(label_test, axis=0)
-        data_train, data_test = self.normalize(train_data=data_train, test_data=data_test)
+        # data_train, data_test = self.normalize(train_data=data_train, test_data=data_test)
         # Prepare the data format for training the model using PyTorch
         data_train = torch.from_numpy(data_train).float()
         label_train = torch.from_numpy(label_train).long()

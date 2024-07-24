@@ -14,20 +14,20 @@ class PrepareData:
         self.data_path = args.data_path
         self.original_order = ['EEG F3-A2', 'EEG F4-A1', 'EEG C3-A2', 'EEG C4-A1', 'EEG O1-A2', 'EEG O2-A1',
                                'EEG LOC-A2', 'EEG ROC-A1', 'EMG Chin', 'ECG EKG', 'EMG Left_Leg', 'EMG Right_Leg',
-                               'Snoring Snore', 'Airflow', 'Resp Thorax', 'Resp Abdomen', 'SaO2 SpO2', 'Manual']
+                               'Snoring Snore', 'Airflow', 'Resp Thorax', 'Resp Abdomen', 'Manual']
         self.graph_fro = [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
                           ['EEG LOC-A2', 'EEG ROC-A1'], ['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin'], ['ECG EKG'],
-                          ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['SaO2 SpO2'], ['Manual']]
+                          ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']]
         self.graph_gen = [['EEG F3-A2', 'EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
                           ['EEG LOC-A2', 'EEG ROC-A1'], ['EMG Left_Leg', 'EMG Right_Leg'], ['EMG Chin'], ['ECG EKG'],
-                          ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['SaO2 SpO2'], ['Manual']]
+                          ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']]
         self.graph_hem = [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2'], ['EEG C4-A1'], ['EEG O1-A2'], ['EEG O2-A1'],
                           ['EEG LOC-A2'], ['EEG ROC-A1'], ['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin'],
                           ['ECG EKG'],
-                          ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['SaO2 SpO2'], ['Manual']]
+                          ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']]
         self.TS = ['EEG F3-A2', 'EEG F4-A1', 'EEG C3-A2', 'EEG C4-A1', 'EEG O1-A2', 'EEG O2-A1', 'EEG LOC-A2',
                    'EEG ROC-A1', 'EMG Chin', 'ECG EKG', 'EMG Left_Leg', 'EMG Right_Leg', 'Snoring Snore', 'Airflow',
-                   'Resp Thorax', 'Resp Abdomen', 'SaO2 SpO2', 'Manual']
+                   'Resp Thorax', 'Resp Abdomen', 'Manual']
         self.graph_type = args.graph_type
 
     def run(self, subject_list, split: bool = False, expand: bool = True) -> None:
@@ -64,15 +64,19 @@ class PrepareData:
         :return: data: (??, ??, ????) label: (??, ?)
         """
         sub += 1
-        if sub < 10:
-            sub_code = 's0{}.dat'.format(sub)
-        else:
-            sub_code = 's{}.dat'.format(sub)
-
-        subject_path = os.path.join(self.data_path, sub_code)
-        subject = cPickle.load(open(subject_path, 'rb'), encoding='latin1')
-        label = subject['labels']
-        data: np.ndarray = subject['data']
+        sub_code = 's{}-'.format(sub)
+        data_lis, label_lis = [], []
+        for dirpath, dirnames, filenames in os.walk(self.data_path):
+            for filename in filenames:
+                if filename.startswith(sub_code):
+                    subject_path = os.path.join(dirpath, filename)
+                    subject = cPickle.load(open(subject_path, 'rb'), encoding='latin1')
+                    label_lis.append(subject['labels'])
+                    data_lis.append(subject['data'])
+        #label = np.concatenate(label_lis, axis=0)
+        print(label_lis)
+        label = np.array(label_lis)
+        data = np.concatenate(data_lis, axis=1)
         #   data: ?? x ?? x ????
         #   label: ?? x ?
         # reorder the EEG channel to build the local-global graphs
@@ -115,16 +119,16 @@ class PrepareData:
             dataset = h5py.File('num_chan_local_graph_{}.hdf'.format(graph), 'w')
             dataset['data'] = num_chan_local_graph
             dataset.close()
-        return data[:, idx, :]
+        return data[idx, :]
 
     @staticmethod
     def label_selection(label):
         """
         Selects which dimension of labels to use and create binary label.
-        :param label: (trial, 4)
+        :param label: (1)
         :return: (trial,)
         """
-        return label[:, 1]  # TTTTT
+        return label[0]
 
     def save(self, data, label, sub: int) -> None:
         """
@@ -167,9 +171,9 @@ class PrepareData:
 
         number_segment = int((data_shape[-1] - data_segment) // step)
         for i in range(number_segment + 1):
-            data_split.append(data[:, :, :, (i * step):(i * step + data_segment)])
+            data_split.append(data[:, :, (i * step):(i * step + data_segment)])
         data_split_array = np.stack(data_split, axis=1)
-        label = np.stack([np.repeat(label[i], int(number_segment + 1)) for i in range(len(label))], axis=0)
+        label = np.stack([np.repeat(label, int(number_segment + 1))], axis=0)
         print("The data and label are split: Data shape:{} Label:{}".format(data_split_array.shape, label.shape))
         data = data_split_array
         assert len(data) == len(label)

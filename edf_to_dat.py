@@ -10,8 +10,10 @@ from preprocess import preprocess_raw
 
 warnings.filterwarnings("ignore")
 
-for dirpath, dirnames, filenames in os.walk('./RBDdata/'):
+os.makedirs('./RBDdata/dat', exist_ok=True)
 
+sub_count = 1
+for dirpath, dirnames, filenames in os.walk('./RBDdata/'):
     for filename in filenames:
         if filename.endswith(".edf"):
             print("Processing {}".format(dirpath.split('/')[-1]))
@@ -35,8 +37,9 @@ for dirpath, dirnames, filenames in os.walk('./RBDdata/'):
                 end = int(indices[-1] * sampling_rate * 30)
                 data_dict = {
                     "data": np.array(raw.get_data(start=start, stop=end)),
-                    "labels": len(raw.ch_names) * [int(dirpath.split('/')[2])],
+                    "labels": [int(dirpath.split('/')[2])],
                 }
-                new_name = "{}_{}-{}.dat".format(dirpath.split('/')[-1], os.path.splitext(filename)[0], phase)
-                with open(os.path.join(dirpath, new_name), 'wb') as f:
+                new_name = "s{}-{}_{}-{}({}).dat".format(sub_count, dirpath.split('/')[-1], os.path.splitext(filename)[0], phase, dirpath.split('/')[-2])
+                with open(os.path.join('./RBDdata/dat/', new_name), 'wb') as f:
                     pickle.dump(data_dict, f)
+            sub_count += 1

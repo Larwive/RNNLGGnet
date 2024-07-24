@@ -213,7 +213,7 @@ class Aggregator:
         return torch.mean(x, dim=dim)
 
 
-class RNNLGGNet(nn.Module, LGGNet):
+class RNNLGGNet(LGGNet, nn.Module):
     def __init__(self, LGG_model, hidden_size, num_layers, dropout_rate, phase: int = 2):
         super(RNNLGGNet, self).__init__()
         self.lgg = LGG_model
