@@ -71,13 +71,11 @@ def count_acc(logits, label):
 
 
 class Timer:
-
     def __init__(self):
         self.o = time.time()
 
     def measure(self, p=1):
-        x = (time.time() - self.o) / p
-        x = int(x)
+        x = int((time.time() - self.o) / p)
         if x >= 3600:
             return '{:.1f}h'.format(x / 3600)
         if x >= 60:
@@ -106,19 +104,27 @@ def get_model(args):
 
 
 def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2):
-    model_name_reproduce = 'sub' + str(excluded_subject) + '_fold' + str(fold) + '.pth'
+    idx_local_graph = list(np.array(h5py.File('num_chan_local_graph_{}.hdf'.format(args.graph_type), 'r')['data']))
+    channels = sum(idx_local_graph)
+    input_size = (args.input_shape[0], channels, args.input_shape[2])
+
+    model_name_reproduce = 'sub{}_fold{}.pth'.format(excluded_subject, fold)
     data_type = 'model'
     experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
     load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
-    LGG_model = get_model(args)
-    LGG = LGG_model.load_state_dict(torch.load(load_path_final))
+    LGG = get_model(args)
+    LGG.load_state_dict(torch.load(load_path_final))
+    print(LGG.state_dict().keys())
     model = RNNLGGNet(LGG, args.rnn_hidden_size, args.rnn_num_layers,
-                      args.rnn_dropout, phase=phase)
+                      args.rnn_dropout, phase=phase, input_size=input_size,
+                      sampling_rate=int(args.sampling_rate * args.scale_coefficient),
+                      num_T=args.T, out_graph=args.hidden,
+                      pool=args.pool, pool_step_rate=args.pool_step_rate,
+                      idx_graph=idx_local_graph)
     return model
 
 
 def get_dataloader(data, label, batch_size):
-    # load the data
     dataset = eegDataset(data, label)
     loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
     return loader
