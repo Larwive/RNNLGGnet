@@ -17,10 +17,10 @@ class GraphConvolution(Module):
         super(GraphConvolution, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = Parameter(torch.FloatTensor(in_features, out_features))
+        self.weight = Parameter(torch.FloatTensor(in_features, out_features)).to(DEVICE)
         torch.nn.init.xavier_uniform_(self.weight, gain=1.414)
         if bias:
-            self.bias = Parameter(torch.zeros((1, 1, out_features), dtype=torch.float32))
+            self.bias = Parameter(torch.zeros((1, 1, out_features), dtype=torch.float32, device=DEVICE))
         else:
             self.register_parameter('bias', None)
 
@@ -54,16 +54,13 @@ class LGGNet(nn.Module):
     @staticmethod
     def temporal_learner(in_chan, out_chan, kernel, pool, pool_step_rate):
         return nn.Sequential(
-            nn.Conv2d(in_chan, out_chan, kernel_size=kernel, stride=(1, 1)),
+            nn.Conv2d(in_chan, out_chan, kernel_size=kernel, stride=(1, 1), device=DEVICE),
             PowerLayer(dim=-1, length=pool, step=int(pool_step_rate * pool))
         )
 
-    def __init__(self, input_size, sampling_rate, num_T,
-                 out_graph, dropout_rate, pool, pool_step_rate, idx_graph
-                 ):
+    def __init__(self, input_size, sampling_rate, num_T, out_graph, dropout_rate, pool, pool_step_rate, idx_graph):
         # input_size: EEG frequency x channel x datapoint
         super(LGGNet, self).__init__()
-        self.input_size = input_size  # Added
         self.idx = idx_graph
         self.window = [0.5, 0.25, 0.125]
         self.pool = pool
@@ -81,40 +78,42 @@ class LGGNet(nn.Module):
         self.Tception3 = self.temporal_learner(input_size[0], num_T,
                                                (1, int(self.window[2] * sampling_rate)),
                                                self.pool, pool_step_rate)
-        self.BN_t = nn.BatchNorm2d(num_T)
-        self.BN_t_ = nn.BatchNorm2d(num_T)
+        self.BN_t = nn.BatchNorm2d(num_T, device=DEVICE)
+        self.BN_t_ = nn.BatchNorm2d(num_T, device=DEVICE)
         self.OneXOneConv = nn.Sequential(
-            nn.Conv2d(num_T, num_T, kernel_size=(1, 1), stride=(1, 1)),
+            nn.Conv2d(num_T, num_T, kernel_size=(1, 1), stride=(1, 1), device=DEVICE),
             nn.LeakyReLU(),
             nn.AvgPool2d((1, 2)))
         # diag(W) to assign a weight to each local areas
         size = self.get_size_temporal(input_size)
         self.local_filter_weight = nn.Parameter(torch.FloatTensor(self.channel, size[-1]),
-                                                requires_grad=True)
+                                                requires_grad=True).to(DEVICE)
         nn.init.xavier_uniform_(self.local_filter_weight)
         self.local_filter_bias = nn.Parameter(torch.zeros((1, self.channel, 1), dtype=torch.float32),
-                                              requires_grad=True)
+                                              requires_grad=True).to(DEVICE)
 
         # aggregate function
         self.aggregate = Aggregator(self.idx)
 
         # trainable adj weight for global network
-        self.global_adj = nn.Parameter(torch.FloatTensor(self.brain_area, self.brain_area), requires_grad=True)
+        self.global_adj = nn.Parameter(torch.FloatTensor(self.brain_area, self.brain_area), requires_grad=True).to(DEVICE)
         nn.init.xavier_uniform_(self.global_adj)
         # to be used after local graph embedding
-        self.bn = nn.BatchNorm1d(self.brain_area)
-        self.bn_ = nn.BatchNorm1d(self.brain_area)
+        self.bn = nn.BatchNorm1d(self.brain_area, device=DEVICE)
+        self.bn_ = nn.BatchNorm1d(self.brain_area, device=DEVICE)
         # learn the global network of networks
         self.GCN = GraphConvolution(size[-1], out_graph)
 
         self.fc = nn.Sequential(
             nn.Dropout(p=dropout_rate),
-            nn.Linear(int(self.brain_area * out_graph), 5),
+            nn.Linear(int(self.brain_area * out_graph), 5, device=DEVICE),
             nn.Dropout(p=dropout_rate),
-            nn.Linear(5, 1)
+            nn.Linear(5, 1, device=DEVICE)
         )
 
         self.sigmoid = nn.Sigmoid()
+
+        self.to(DEVICE)
 
     def temporal_learning_block(self, x):
         out = self.Tception1(x)
@@ -149,7 +148,7 @@ class LGGNet(nn.Module):
 
     def get_size_temporal(self, input_size):
         # input_size: frequency x channel x data point
-        data = torch.ones((1, input_size[0], input_size[1], int(input_size[2])))
+        data = torch.ones((1, input_size[0], input_size[1], int(input_size[2])), device=DEVICE)
         return self.temporal_learning_block(data).size()
 
     def local_filter_fun(self, x, w):
@@ -163,7 +162,7 @@ class LGGNet(nn.Module):
         num_nodes = adj.shape[-1]
         adj = F.relu(adj * (self.global_adj + self.global_adj.transpose(1, 0)))
         if self_loop:
-            adj = adj + torch.eye(num_nodes).to(DEVICE)
+            adj = adj + torch.eye(num_nodes, device=DEVICE)
         rowsum = torch.sum(adj, dim=-1)
         mask = torch.zeros_like(rowsum)
         mask[rowsum == 0] = 1
@@ -182,7 +181,6 @@ class LGGNet(nn.Module):
 
 
 class Aggregator:
-
     def __init__(self, idx_area):
         # chan_in_area: a list of the number of channels within each area
         self.chan_in_area = idx_area
@@ -214,10 +212,11 @@ class Aggregator:
 
 
 class RNNLGGNet(LGGNet, nn.Module):
-    def __init__(self, LGG_model, hidden_size, num_layers, dropout_rate, phase: int = 2):
-        super(RNNLGGNet, self).__init__()
+    def __init__(self, LGG_model, hidden_size, num_layers, dropout_rate, input_size, sampling_rate, num_T, out_graph,
+                 pool, pool_step_rate, idx_graph, phase: int = 2):
+        super().__init__(input_size, sampling_rate, num_T, out_graph, dropout_rate, pool, pool_step_rate, idx_graph)
         self.lgg = LGG_model
-        self.input_size = LGG_model.input_size
+        self.input_size = input_size
         self.idx = LGG_model.idx
         self.window = LGG_model.window
         self.pool = LGG_model.pool
@@ -258,20 +257,16 @@ class RNNLGGNet(LGGNet, nn.Module):
                 param.requires_grad = False
             for param in self.BN_t_.parameters():
                 param.requires_grad = False
-            for param in self.local_filter_weight.parameters():
-                param.requires_grad = False
-            for param in self.local_filter_bias.parameters():
-                param.requires_grad = False
-            for param in self.global_adj.parameters():
-                param.requires_grad = False
+            self.local_filter_weight.detach_()
+            self.local_filter_bias.detach_()
+            self.global_adj.detach_()
             for param in self.bn.parameters():
                 param.requires_grad = False
             for param in self.GCN.parameters():
                 param.requires_grad = False
             for param in self.bn_.parameters():
                 param.requires_grad = False
-
-        self.rnn = nn.GRU(self.get_size_common_forward(self.input_size), hidden_size, num_layers, batch_first=True, dropout=dropout_rate)
+        self.rnn = nn.GRU(self.get_size_common_forward(self.input_size)[1], hidden_size, num_layers, batch_first=True, dropout=dropout_rate)
         self.fc = nn.Sequential(
             nn.Dropout(p=dropout_rate),
             nn.Linear(hidden_size, 5),
@@ -280,14 +275,16 @@ class RNNLGGNet(LGGNet, nn.Module):
         )
         self.sigmoid = nn.Sigmoid()
 
+        self.to(DEVICE)
+
     def forward(self, x):
         out = self.common_forward(x)
         out = self.rnn(out.unsqueeze(1))[0]
         out = self.fc(out[:, -1, :])
         out = self.sigmoid(out)
-        return out
+        return out.squeeze(1)
 
     def get_size_common_forward(self, input_size):
         # input_size: frequency x channel x data point
-        data = torch.ones((1, input_size[0], input_size[1], int(input_size[2])))
+        data = torch.ones((1, input_size[0], input_size[1], int(input_size[2])), device=DEVICE)
         return self.common_forward(data).size()
