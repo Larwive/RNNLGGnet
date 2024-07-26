@@ -86,7 +86,7 @@ def train_loop(args, model, train_loader, val_loader, subject, fold):
         print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.
               format(epoch, loss_val, acc_val, f1_val))
 
-        if acc_val >= trlog['max_acc']:
+        if acc_val >= trlog['max_acc'] and not np.isclose(acc_val, 1.):
             trlog['max_acc'] = acc_val
             trlog['F1'] = f1_val
             save_model('candidate')
@@ -165,7 +165,7 @@ def test(args, data, label, reproduce, subject, fold, phase: int = 1):
     )
     acc, f1, cm = get_metrics(y_pred=pred, y_true=act)
     print('>>> Test:  loss={:.4f} acc={:.4f} f1={:.4f}'.format(loss, acc, f1))
-    return acc, pred, act
+    return acc, f1, cm
 
 
 def combine_train(args, data, label, subject, fold, target_acc):

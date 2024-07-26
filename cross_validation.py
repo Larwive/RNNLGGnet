@@ -14,9 +14,9 @@ def subject_fold(subjects, rate: float):
     :param rate:
     :return:
     """
-    group_size = int(len(subjects) * rate)
+    group_size = int(len(subjects) * rate) + 1
     current = group_size
-    while current < len(subjects):
+    while current < len(subjects) + group_size:
         yield subjects[max(0, current - group_size):min(len(subjects), current)]
         current += group_size
 
@@ -254,12 +254,13 @@ class CrossValidation:
 
         return train_data, train_label, val, val_label
 
-    def subject_fold_CV(self, subject=None, shuffle=False, rand_state=None, rate: float = .3):
+    def subject_fold_CV(self, subject=None, shuffle=False, rand_state=None, rate: float = .2):
         """
         this function achieves n-fold cross-validation
         :param subject: how many subject to load
         :param shuffle:
         :param rand_state:
+        :param rate:
         """
         # Train and evaluate the model subject by subject
         if subject is None:
@@ -275,7 +276,6 @@ class CrossValidation:
             data_test, label_test = self.load_subjects(excluded_subs)
             va_val = Averager()
             vf_val = Averager()
-            preds, acts = [], []
             print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
             data_train, label_train = self.prepare_data_subject_fold(data_train, label_train)
             data_test, label_test = self.prepare_data_subject_fold(data_test, label_test)
@@ -283,29 +283,25 @@ class CrossValidation:
             data_train = np.expand_dims(data_train, axis=1)
             data_test = np.expand_dims(data_test, axis=1)
             if self.args.reproduce:
-                acc_test, pred, act = test(args=self.args, data=data_test, label=label_test,
-                                           reproduce=self.args.reproduce,
-                                           subject=sub, fold=0)
+                acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
+                                        subject=sub, fold=0)
                 acc_val = 0
                 f1_val = 0
             else:
                 # to train new models
-                acc_val, f1_val = self.first_stage(data=data_train, label=label_train,
-                                                   subject=sub, fold=0, rand_state=rand_state)
+                acc_val, f1_val = self.first_stage(data=data_train, label=label_train, subject=sub, fold=0,
+                                                   rand_state=rand_state)
 
-                combine_train(args=self.args,
-                              data=data_train, label=label_train,
-                              subject=sub, fold=0, target_acc=1)
+                combine_train(args=self.args, data=data_train, label=label_train, subject=sub, fold=0, target_acc=1)
 
-                acc_test, pred, act = test(args=self.args, data=data_test, label=label_test,
-                                           reproduce=self.args.reproduce,
-                                           subject=sub, fold=0)
-            self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, preds, pred, acts, act, tva, tvf, tta,
-                                         ttf)
+                acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
+                                        subject=sub, fold=0)
+            self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta,
+                                         ttf, acc_test, f1)
 
         self.final_print(tta, tva, tvf)
 
-    def subject_fold_cv_phase_2_3(self, subject=None, phase: int = 2):
+    def subject_fold_cv_phase_2_3(self, subject=None, phase: int = 2, rate: float = .2):
         """
         this function achieves n-fold cross-validation
         :param subject: how many subject to load
@@ -326,14 +322,15 @@ class CrossValidation:
         ttf = []  # total test f1
         tvf = []  # total validation f1
 
-        all_data, all_label = self.load_all(prepare_data=True, expand=True)
+        all_data, all_label = self.load_all()  # TODO: Investigate how to use `prepare_data` and `expand` to simplify
 
-        for excluded_sub in subject:
-            print('Subject fold: {} excluded'.format(excluded_sub))
-            data_test = all_data[excluded_sub]
-            label_test = all_label[excluded_sub]
-            #data_test, label_test = self.prepare_data_subject_fold(data_test, label_test)
-            #data_test = np.expand_dims(data_test, axis=1)
+        for excluded_subs in subject_fold(subject, rate):
+            print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
+            excluded_sub = excluded_subs[0]
+            data_test = reduce(lambda x, y: np.concatenate((x, y), axis=1), [all_data[sub] for sub in excluded_subs])
+            label_test = reduce(lambda x, y: np.concatenate((x, y), axis=1), [all_label[sub] for sub in excluded_subs])
+            data_test, label_test = self.prepare_data_subject_fold(data_test, label_test)
+            data_test = np.expand_dims(data_test, axis=1)
 
             val_loader = get_dataloader(data_test, label_test, self.args.batch_size)
             model = get_RNNLGG(self.args, excluded_sub, phase=phase)
@@ -341,7 +338,7 @@ class CrossValidation:
             scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.args.step_size, gamma=self.args.gamma)
             criterion = nn.BCELoss()
             for sub in subject:
-                if sub == excluded_sub:
+                if sub in excluded_subs:
                     continue
 
                 model.zero_grad()
@@ -352,29 +349,27 @@ class CrossValidation:
 
                 va_val = Averager()
                 vf_val = Averager()
-                preds, acts = [], []
 
-                #data_train, label_train = self.prepare_data_subject_fold(data_train, label_train)
-                #data_train = np.expand_dims(data_train, axis=1)
+                data_train, label_train = self.prepare_data_subject_fold(data_train, label_train)
+                data_train = np.expand_dims(data_train, axis=1)
 
                 train_loader = get_dataloader(data_train, label_train, batch_size=self.args.batch_size)
                 acc_val = 0
                 f1_val = 0
-                pred, act = None, None
+                acc_test, f1 = None, None
                 if self.args.reproduce:
-                    acc_test, pred, act = test(args=self.args, data=data_test, label=label_test,
-                                               reproduce=self.args.reproduce,
-                                               subject=sub, fold=0, phase=phase)
-
+                    acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test,
+                                            reproduce=self.args.reproduce, subject=sub, fold=0, phase=phase)
+                    acc_val = 0
+                    f1_val = 0
                 else:
                     trlog = {'args': vars(self.args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [],
-                             'max_acc': 0.0,
-                             'F1': 0.0}
+                             'max_acc': 0.0, 'F1': 0.0}
                     timer = Timer()
                     patient = self.args.patient
                     counter = 0
 
-                    for epoch in range(1, self.args.phase_2_epochs+1):
+                    for epoch in range(1, self.args.phase_2_epochs + 1):
                         tl = Averager()
                         pred_train = []
                         act_train = []
@@ -416,26 +411,23 @@ class CrossValidation:
                         trlog['val_loss'].append(loss_val)
                         trlog['val_acc'].append(acc_val)
 
-                        acc_test, pred, act = test(args=self.args, data=data_test, label=label_test,
-                                                   reproduce=self.args.reproduce, subject=sub, fold=0)
+                        acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test,
+                                                reproduce=self.args.reproduce, subject=sub, fold=0)
 
                         print('ETA:{}/{} EXC_SUB:{} SUB:{}'.format(timer.measure(),
-                                                        timer.measure(epoch / self.args.phase_2_epochs), excluded_sub, sub))
+                                                                   timer.measure(epoch / self.args.phase_2_epochs),
+                                                                   ', '.join([str(sub) for sub in excluded_subs]), sub))
 
-                self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, preds, pred, acts, act, tva, tvf, tta,
-                                             ttf)
+                self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta, ttf, acc_test, f1)
 
         self.final_print(tta, tva, tvf)
 
     @staticmethod
-    def aggregate_compute_score(va_val, acc_val, vf_val, f1_val, preds, pred, acts, act, tva, tvf, tta, ttf):
+    def aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta, ttf, acc, f1):
         va_val.add(acc_val)
         vf_val.add(f1_val)
-        preds.extend(pred)
-        acts.extend(act)
         tva.append(va_val.item())
         tvf.append(vf_val.item())
-        acc, f1, _ = get_metrics(y_pred=preds, y_true=acts)
         tta.append(acc)
         ttf.append(f1)
 
