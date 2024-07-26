@@ -14,7 +14,7 @@ def train_one_epoch(data_loader, net, loss_fn, optimizer, scheduler):
 
         out = net(x_batch)
         loss = loss_fn(out, y_batch)
-        #_, pred = torch.max(out)
+        # _, pred = torch.max(out)
         pred = (out >= .5).int()
         pred_train.extend(pred.data.tolist())
         act_train.extend(y_batch.data.tolist())
@@ -37,7 +37,7 @@ def predict(data_loader, net, loss_fn):
 
             out = net(x_batch)
             loss = loss_fn(out, y_batch)
-            #_, pred = torch.max(out, 1)
+            # _, pred = torch.max(out, 1)
             pred = (out >= .5).int()
             vl.add(loss.item())
             pred_val.extend(pred.data.tolist())
