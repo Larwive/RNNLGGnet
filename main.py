@@ -2,6 +2,17 @@ from cross_validation import *
 from prepare_data import *
 import argparse
 
+
+def banner_print(message) -> None:
+    """
+    Print a banner.
+    :param message: Message to print
+    :return: None
+    """
+    border = '*' * (len(message) + 4)
+    print(f'{border}\n* {message} *\n{border}')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Data ########
@@ -35,6 +46,11 @@ if __name__ == '__main__':
 
     parser.add_argument('--rnn-hidden-size', type=int, default=10)
     parser.add_argument('--rnn-num-layers', type=int, default=10)
+    parser.add_argument('--rnn-dropout', type=float, default=.5)
+    parser.add_argument('--skip-to', type=int, default=1)  # Skip to the specified
+    parser.add_argument('--phase-2-epochs', type=int, default=200)
+    parser.add_argument('--phase-3-epochs', type=int, default=200)
+
     # Model Parameters ########
     parser.add_argument('--model', type=str, default='HOSPNet')
     parser.add_argument('--pool', type=int, default=16)
@@ -51,7 +67,13 @@ if __name__ == '__main__':
     pd.run(sub_to_run, split=True, expand=True)
     cv = CrossValidation(args)
     seed_all(args.random_seed)
-    cv.subject_fold_CV(subject=sub_to_run, rand_state=args.kfold_rand_state)
 
-    cv.subject_fold_cv_phase_2_3(subject=sub_to_run, phase=2)
-    cv.subject_fold_cv_phase_2_3(subject=sub_to_run, phase=3)
+    if args.skip_to <= 1:
+        banner_print("Phase 1")
+        cv.subject_fold_CV(subject=sub_to_run, rand_state=args.kfold_rand_state)
+    if args.skip_to <= 2:
+        banner_print("Phase 2")
+        cv.subject_fold_cv_phase_2_3(subject=sub_to_run, phase=2)
+    if args.skip_to <= 3:
+        banner_print("Phase 3")
+        cv.subject_fold_cv_phase_2_3(subject=sub_to_run, phase=3)
