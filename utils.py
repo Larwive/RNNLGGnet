@@ -11,10 +11,12 @@ from model import *
 
 
 class eegDataset(Dataset):
-    # x_tensor: (sample, channel, datapoint(feature)) type = torch.tensor
-    # y_tensor: (sample,) type = torch.tensor
-
     def __init__(self, x_tensor, y_tensor):
+        """
+        Wrapper class for tensors.
+        :param x_tensor: (sample, channel, datapoint(feature))
+        :param y_tensor: (sample,) type = torch.tensor
+        """
         if type(x_tensor) is np.ndarray:
             self.x = torch.tensor(x_tensor, dtype=torch.float32)
             shapex0 = self.x.shape[0]
@@ -54,9 +56,7 @@ def seed_all(seed):
 
 
 def ensure_path(path):
-    if os.path.exists(path):
-        pass
-    else:
+    if not os.path.exists(path):
         os.makedirs(path)
 
 
@@ -120,6 +120,7 @@ def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2):
     data_type = 'model'
     experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
     load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
+
     LGG = get_model(args)
     LGG.load_state_dict(torch.load(load_path_final, weights_only=False))
     model = RNNLGGNet(LGG, args.rnn_hidden_size, args.rnn_num_layers,
@@ -138,12 +139,11 @@ def get_dataloader(data, label, batch_size):
 
 
 def get_metrics(y_pred, y_true, classes=None):
+    if classes is None:
+        classes = [.0, .1]
     acc = accuracy_score(y_true, y_pred)
     f1 = f1_score(y_true, y_pred)
-    if classes is not None:
-        cm = confusion_matrix(y_true, y_pred, labels=classes)
-    else:
-        cm = confusion_matrix(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred, labels=classes)
     return acc, f1, cm
 
 
