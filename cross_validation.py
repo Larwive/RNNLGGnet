@@ -9,10 +9,10 @@ ROOT = os.getcwd()
 
 def subject_fold(subjects, rate: float):
     """
-
-    :param subjects:
-    :param rate:
-    :return:
+    Give groups of subjects for multiple-subject-wise cross-validation.
+    :param subjects: All the subjects to train on.
+    :param rate: Rate at which to split the subjects.
+    :return: Yields sub lists of subjects to do cross-validation on.
     """
     group_size = int(len(subjects) * rate) + 1
     current = group_size
@@ -48,6 +48,13 @@ class CrossValidation:
 
     @staticmethod
     def read_data(sub: int, save_path: str, data_type: str):
+        """
+        Read subject data from `hdf` files.
+        :param sub: The subject number to read data of.
+        :param save_path: The path to the `hdf` files.
+        :param data_type: Subdirectory of `save_path`.
+        :return: Data and label from `hdf` files of specified subject.
+        """
         sub_code = 'sub{}.hdf'.format(sub)
         path = osp.join(save_path, data_type, sub_code)
         with h5py.File(path, 'r') as dataset:
@@ -57,9 +64,9 @@ class CrossValidation:
 
     def load_per_subject(self, sub: int):
         """
-        load data for sub
-        :param sub: which subject's data to load
-        :return: data and label
+        Load data for a subject.
+        :param sub: The subject number to read data of.
+        :return: Data and label of the subject.
         """
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
@@ -67,7 +74,24 @@ class CrossValidation:
         print('>>> Data:{} Label:{}'.format(data.shape, label.shape))
         return data, label
 
+    @staticmethod
+    def reduce_data(datas, labels, shuffle: bool):
+        datas = reduce(lambda x, y: np.concatenate((x, y), axis=1), datas)
+        labels = reduce(lambda x, y: np.concatenate((x, y), axis=1), labels)
+        if shuffle:
+            permutation = np.random.permutation(len(datas))
+            datas = datas[permutation]
+            labels = labels[permutation]
+        return datas, labels
+
     def load_all_except_one(self, excluded_sub: int, max_subject: int = 19, shuffle: bool = False):
+        """
+        Load data for all subjects except one.
+        :param excluded_sub: The subject number to exclude from loading.
+        :param max_subject: The max subject number to load.
+        :param shuffle: Whether to shuffle the data.
+        :return: Datas and labels of wanted subjects.
+        """
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
@@ -78,16 +102,16 @@ class CrossValidation:
             datas.append(data)
             labels.append(label)
             print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
-        datas = reduce(lambda x, y: np.concatenate((x, y), axis=1), datas)
-        labels = reduce(lambda x, y: np.concatenate((x, y), axis=1), labels)
-        if shuffle:
-            permutation = np.random.permutation(len(datas))
-            datas = datas[permutation]
-            labels = labels[permutation]
-
-        return datas, labels
+        return self.reduce_data(datas, labels, shuffle)
 
     def load_all_except_some(self, excluded_subs, max_subject: int = 19, shuffle: bool = False):
+        """
+        Load data for all subjects except one.
+        :param excluded_subs: The subject numbers to exclude from loading.
+        :param max_subject: The max subject number to load.
+        :param shuffle: Whether to shuffle the data.
+        :return: Datas and labels of wanted subjects.
+        """
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
@@ -98,16 +122,15 @@ class CrossValidation:
             datas.append(data)
             labels.append(label)
             print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
-        datas = reduce(lambda x, y: np.concatenate((x, y), axis=1), datas)
-        labels = reduce(lambda x, y: np.concatenate((x, y), axis=1), labels)
-        if shuffle:
-            permutation = np.random.permutation(len(datas))
-            datas = datas[permutation]
-            labels = labels[permutation]
-
-        return datas, labels
+        return self.reduce_data(datas, labels, shuffle)
 
     def load_subjects(self, subjects, shuffle: bool = False):
+        """
+        Load some subjects' data.
+        :param subjects: The subjects to load data of.
+        :param shuffle: Whether to shuffle the data.
+        :return: Datas and labels of wanted subjects.
+        """
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
@@ -116,16 +139,16 @@ class CrossValidation:
             datas.append(data)
             labels.append(label)
             print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
-        datas = reduce(lambda x, y: np.concatenate((x, y), axis=1), datas)
-        labels = reduce(lambda x, y: np.concatenate((x, y), axis=1), labels)
-        if shuffle:
-            permutation = np.random.permutation(len(datas))
-            datas = datas[permutation]
-            labels = labels[permutation]
-
-        return datas, labels
+        return self.reduce_data(datas, labels, shuffle)
 
     def load_all(self, max_subject: int = 19, prepare_data=False, expand=False):
+        """
+        Load all subjects' data.
+        :param max_subject: The max subject number to load.
+        :param prepare_data: Whether to prepare the data.
+        :param expand: Whether to expand data.
+        :return: Datas and labels of all subjects.
+        """
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
@@ -167,10 +190,10 @@ class CrossValidation:
 
     def prepare_data_subject_fold(self, data, label):
         """
-
-        :param data:
-        :param label:
-        :return:
+        Prepare data for the subject-wise cross-validation.
+        :param data: Data to prepare.
+        :param label: Label to prepare.
+        :return: Prepared data and label.
         """
 
         """
@@ -184,10 +207,16 @@ class CrossValidation:
         label = np.concatenate(label, axis=0)
         return self.normalize_data(data, label)
 
-    def normalize_data(self, data, label):
-
+    @staticmethod
+    def normalize_data(data, label):
+        """
+        Prepare the data format for training the model using PyTorch
+        :param data: Data to be normalized
+        :param label: Associated label
+        :return: Normalized data and label
+        """
+        # Already normalized in the `.dat` files
         # data_train, data_test = self.normalize(train_data=data_train, test_data=data_test)
-        # Prepare the data format for training the model using PyTorch
         data = torch.from_numpy(data).float()
         label = torch.from_numpy(label).long()
         return data, label
@@ -195,8 +224,7 @@ class CrossValidation:
     @staticmethod
     def normalize(train_data, test_data):
         """
-        this function do standard normalization for EEG channel by channel
-        TTTTT Probably useless because data is already subject-wise normalized
+        This function do standard normalization for EEG channel by channel
         :param train_data: training data (sample, 1, chan, datapoint)
         :param test_data: testing data (sample, 1, chan, datapoint)
         :return: normalized training and testing data
@@ -219,11 +247,7 @@ class CrossValidation:
         :param randomize: bool, whether to shuffle the training data before get the validation data
         :return: data_train, label_train, and data_val, label_val
         """
-        # Data dimension: segment x 1 x channel x data
-        # Label dimension: segment x 1
         np.random.seed(0)
-        # data : segments x 1 x channel x data
-        # label : segments
 
         index_0 = np.where(label == 0)[0]
         index_1 = np.where(label == 1)[0]
@@ -254,23 +278,22 @@ class CrossValidation:
 
         return train_data, train_label, val, val_label
 
-    def subject_fold_CV(self, subject=None, shuffle=False, rand_state=None, rate: float = .2):
+    def subject_fold_CV(self, subjects=None, shuffle=False, rand_state=None, rate: float = .2):
         """
-        this function achieves n-fold cross-validation
-        :param subject: how many subject to load
-        :param shuffle:
-        :param rand_state:
-        :param rate:
+        This function achieves subject-wise cross-validation.
+        :param subjects: Subjects to load.
+        :param shuffle: Whether to shuffle the training data.
+        :param rand_state: See sklearn.model_selection._split.KFold
+        :param rate: Rate at which to split the subjects.
         """
-        # Train and evaluate the model subject by subject
-        if subject is None:
-            subject = [0]
+        if subjects is None:
+            subjects = [0]
         tta = []  # total test accuracy
         tva = []  # total validation accuracy
         ttf = []  # total test f1
         tvf = []  # total validation f1
 
-        for excluded_subs in subject_fold(subject, rate):
+        for excluded_subs in subject_fold(subjects, rate):
             sub = excluded_subs[0]
             data_train, label_train = self.load_all_except_some(excluded_subs, shuffle=shuffle)
             data_test, label_test = self.load_subjects(excluded_subs)
@@ -301,11 +324,12 @@ class CrossValidation:
 
         self.final_print(tta, tva, tvf)
 
-    def subject_fold_cv_phase_2_3(self, subject=None, phase: int = 2, rate: float = .2):
+    def subject_fold_cv_phase_2_3(self, subjects=None, phase: int = 2, rate: float = .2):
         """
-        this function achieves n-fold cross-validation
-        :param subject: how many subject to load
-        :param phase:
+        This function achieves phases 2 and 3 of subject-wise cross-validation.
+        :param subjects: The subjects to load.
+        :param phase: Which training phase to execute.
+        :param rate: The percentage of subjects for the multiple-subject-wise cross-validation.
         """
 
         def save_model(name):
@@ -314,9 +338,8 @@ class CrossValidation:
                 os.remove(previous_model)
             torch.save(model.state_dict(), osp.join(self.args.save_path, 'RNN_LGG_{}.pth'.format(name)))
 
-        # Train and evaluate the model subject by subject
-        if subject is None:
-            subject = [0]
+        if subjects is None:
+            subjects = [0]
         tta = []  # total test accuracy
         tva = []  # total validation accuracy
         ttf = []  # total test f1
@@ -324,7 +347,7 @@ class CrossValidation:
 
         all_data, all_label = self.load_all()  # TODO: Investigate how to use `prepare_data` and `expand` to simplify
 
-        for excluded_subs in subject_fold(subject, rate):
+        for excluded_subs in subject_fold(subjects, rate):
             print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
             excluded_sub = excluded_subs[0]
             data_test = reduce(lambda x, y: np.concatenate((x, y), axis=1), [all_data[sub] for sub in excluded_subs])
@@ -337,7 +360,7 @@ class CrossValidation:
             optimizer = optim.Adam(model.parameters(), lr=0.001)
             scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.args.step_size, gamma=self.args.gamma)
             criterion = nn.BCELoss()
-            for sub in subject:
+            for sub in subjects:
                 if sub in excluded_subs:
                     continue
 
@@ -356,12 +379,9 @@ class CrossValidation:
                 train_loader = get_dataloader(data_train, label_train, batch_size=self.args.batch_size)
                 acc_val = 0
                 f1_val = 0
-                acc_test, f1 = None, None
                 if self.args.reproduce:
                     acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test,
                                             reproduce=self.args.reproduce, subject=sub, fold=0, phase=phase)
-                    acc_val = 0
-                    f1_val = 0
                 else:
                     trlog = {'args': vars(self.args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [],
                              'max_acc': 0.0, 'F1': 0.0}
@@ -462,7 +482,6 @@ class CrossValidation:
         """
         # use n-fold-CV to select hyperparameters on training data
         # save the best performance model and the corresponding acc for the second stage
-        # data: trial x 1 x channel x time
         kf = KFold(n_splits=3, shuffle=True, random_state=rand_state)
         va = Averager()
         vf = Averager()
