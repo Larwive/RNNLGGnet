@@ -73,7 +73,7 @@ class PrepareData:
                     subject = cPickle.load(open(subject_path, 'rb'), encoding='latin1')
                     label_lis.append(subject['labels'])
                     data_lis.append(subject['data'])
-        #label = np.concatenate(label_lis, axis=0)
+        # label = np.concatenate(label_lis, axis=0)
         label = np.array(label_lis)
         data = np.concatenate(data_lis, axis=1)
         #   data: ?? x ?? x ????
