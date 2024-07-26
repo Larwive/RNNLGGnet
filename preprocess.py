@@ -64,9 +64,7 @@ def remove_muscle_artifacts(raw: mne.io.BaseRaw, n_components: int = 15, method:
     )
     ica.fit(raw)
     muscle_idx_auto, scores = ica.find_bads_muscle(raw)
-    print(
-        "Automatically found muscle artifact ICA components: "
-        f"{muscle_idx_auto}")
+    print(f"Automatically found muscle artifact ICA components: {muscle_idx_auto}")
     if plot:
         ica.plot_sources(raw)
         ica.plot_properties(raw, picks=muscle_idx_auto, log_scale=True)

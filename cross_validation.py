@@ -326,12 +326,12 @@ class CrossValidation:
         ttf = []  # total test f1
         tvf = []  # total validation f1
 
-        data, label = self.load_all(prepare_data=True, expand=True)
+        all_data, all_label = self.load_all(prepare_data=True, expand=True)
 
         for excluded_sub in subject:
             print('Subject fold: {} excluded'.format(excluded_sub))
-            data_test = data[excluded_sub]
-            label_test = label[excluded_sub]
+            data_test = all_data[excluded_sub]
+            label_test = all_label[excluded_sub]
             #data_test, label_test = self.prepare_data_subject_fold(data_test, label_test)
             #data_test = np.expand_dims(data_test, axis=1)
 
@@ -347,8 +347,8 @@ class CrossValidation:
                 model.zero_grad()
                 optimizer.zero_grad()
 
-                data_train = data[sub]
-                label_train = label[sub]
+                data_train = all_data[sub]
+                label_train = all_label[sub]
 
                 va_val = Averager()
                 vf_val = Averager()
@@ -400,7 +400,7 @@ class CrossValidation:
                         print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.
                               format(epoch, loss_val, acc_val, f1_val))
 
-                        if acc_val >= trlog['max_acc']:
+                        if acc_val >= trlog['max_acc'] and not np.isclose(acc_val, 1.):
                             trlog['max_acc'] = acc_val
                             trlog['F1'] = f1_val
                             save_model('candidate')

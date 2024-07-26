@@ -74,7 +74,6 @@ class PrepareData:
                     label_lis.append(subject['labels'])
                     data_lis.append(subject['data'])
         #label = np.concatenate(label_lis, axis=0)
-        print(label_lis)
         label = np.array(label_lis)
         data = np.concatenate(data_lis, axis=1)
         #   data: ?? x ?? x ????

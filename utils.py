@@ -17,14 +17,17 @@ class eegDataset(Dataset):
     def __init__(self, x_tensor, y_tensor):
         if type(x_tensor) is np.ndarray:
             self.x = torch.tensor(x_tensor, dtype=torch.float32)
+            shapex0 = self.x.shape[0]
         else:
             self.x = x_tensor.to(dtype=torch.float32)
+            shapex0 = self.x.size(0)
         if type(y_tensor) is np.ndarray:
             self.y = torch.tensor(y_tensor, dtype=torch.float32)
+            shapey0 = self.y.shape[0]
         else:
             self.y = y_tensor.to(dtype=torch.float32)
-        print(self.x.shape)
-        assert self.x.shape[0] == self.y.shape[0]
+            shapey0 = self.y.size(0)
+        assert shapex0 == shapey0
 
     def __getitem__(self, index):
         return self.x[index], self.y[index]
@@ -58,7 +61,6 @@ def ensure_path(path):
 
 
 class Averager:
-
     def __init__(self):
         self.n = 0
         self.v = 0
@@ -120,7 +122,6 @@ def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2):
     load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
     LGG = get_model(args)
     LGG.load_state_dict(torch.load(load_path_final, weights_only=False))
-    print(LGG.state_dict().keys())
     model = RNNLGGNet(LGG, args.rnn_hidden_size, args.rnn_num_layers,
                       args.rnn_dropout, phase=phase, input_size=input_size,
                       sampling_rate=int(args.sampling_rate * args.scale_coefficient),
