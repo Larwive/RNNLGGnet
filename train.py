@@ -200,7 +200,7 @@ def combine_train(args, data, label, subject, fold, target_acc):
         print('Stage 2 : epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
               .format(epoch, loss, acc, f1))
 
-        if acc >= target_acc or epoch == args.max_epoch_cmb:
+        if acc >= target_acc or np.isclose(acc, target_acc) or epoch == args.max_epoch_cmb:
             print('early stopping!')
             save_model('final_model')
             # save model here for reproduce

@@ -345,7 +345,7 @@ class CrossValidation:
         ttf = []  # total test f1
         tvf = []  # total validation f1
 
-        all_data, all_label = self.load_all()  # TODO: Investigate how to use `prepare_data` and `expand` to simplify
+        all_data, all_label = self.load_all()
 
         for excluded_subs in subject_fold(subjects, rate):
             print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
