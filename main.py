@@ -70,10 +70,10 @@ if __name__ == '__main__':
 
     if args.skip_to <= 1:
         banner_print("Phase 1")
-        cv.subject_fold_CV(subject=sub_to_run, rand_state=args.kfold_rand_state)
+        cv.subject_fold_CV(subjects=sub_to_run, rand_state=args.kfold_rand_state)
     if args.skip_to <= 2:
         banner_print("Phase 2")
-        cv.subject_fold_cv_phase_2_3(subject=sub_to_run, phase=2)
+        cv.subject_fold_cv_phase_2_3(subjects=sub_to_run, phase=2)
     if args.skip_to <= 3:
         banner_print("Phase 3")
-        cv.subject_fold_cv_phase_2_3(subject=sub_to_run, phase=3)
+        cv.subject_fold_cv_phase_2_3(subjects=sub_to_run, phase=3)
