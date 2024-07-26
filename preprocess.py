@@ -87,7 +87,7 @@ def normalize(raw: mne.io.BaseRaw) -> RawArray:
 def preprocess_raw(raw: mne.io.BaseRaw) -> mne.io.BaseRaw:
     raw = update_channels(raw, verbose=0)
     raw.filter(l_freq=0.5, h_freq=50, verbose=0)
-    #raw = remove_muscle_artifacts(raw)
+    # raw = remove_muscle_artifacts(raw)
 
     raw.resample(128, verbose=0)
     raw = normalize(raw)

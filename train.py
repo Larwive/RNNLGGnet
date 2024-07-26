@@ -150,7 +150,7 @@ def test(args, data, label, reproduce, subject, fold, phase: int = 1):
         model = get_model(args).to(device)
     else:
         model = get_RNNLGG(args, subject, phase).to(device)
-    loss_fn = nn.BCELoss()  # TODO: Consider nn.BCEWithLogitsLoss() ?
+    loss_fn = nn.BCELoss()  # Consider nn.BCEWithLogitsLoss() ?
 
     if reproduce:
         model_name_reproduce = 'sub' + str(subject) + '_fold' + str(fold) + '.pth'
