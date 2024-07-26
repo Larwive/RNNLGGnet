@@ -26,7 +26,7 @@ def train_one_epoch(data_loader, net, loss_fn, optimizer, scheduler):
     return tl.item(), pred_train, act_train
 
 
-def predict(data_loader, net, loss_fn):
+def predict(data_loader, net, loss_fn, require_cm: bool = False):
     net.eval()
     pred_val = []
     act_val = []
@@ -42,7 +42,10 @@ def predict(data_loader, net, loss_fn):
             vl.add(loss.item())
             pred_val.extend(pred.data.tolist())
             act_val.extend(y_batch.data.tolist())
-    return vl.item(), pred_val, act_val
+    acc, f1, cm = get_metrics(pred_val, act_val)
+    if require_cm:
+        return vl.item(), acc, f1, cm
+    return vl.item(), acc, f1
 
 
 def set_up(args):
@@ -81,20 +84,17 @@ def train_loop(args, model, train_loader, val_loader, subject, fold):
         print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
               .format(epoch, loss_train, acc_train, f1_train))
 
-        loss_val, pred_val, act_val = predict(data_loader=val_loader, net=model, loss_fn=loss_fn)
-        acc_val, f1_val, _ = get_metrics(y_pred=pred_val, y_true=act_val)
-        print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.
-              format(epoch, loss_val, acc_val, f1_val))
+        loss_val, acc_val, f1_val = predict(data_loader=val_loader, net=model, loss_fn=loss_fn)
+        print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val, f1_val))
 
         if acc_val >= trlog['max_acc'] and not np.isclose(acc_val, 1.):
-            trlog['max_acc'] = acc_val
-            trlog['F1'] = f1_val
+            trlog['max_acc'], trlog['F1'] = acc_val, f1_val
             save_model('candidate')
             counter = 0
         else:
             counter += 1
             if counter >= patient:
-                print('early stopping')
+                print('Early stopping')
                 break
 
         trlog['train_loss'].append(loss_train)
@@ -160,10 +160,7 @@ def test(args, data, label, reproduce, subject, fold, phase: int = 1):
         model.load_state_dict(torch.load(load_path_final, weights_only=False))
     else:
         model.load_state_dict(torch.load(args.load_path_final, weights_only=False))
-    loss, pred, act = predict(
-        data_loader=test_loader, net=model, loss_fn=loss_fn
-    )
-    acc, f1, cm = get_metrics(y_pred=pred, y_true=act)
+    loss, acc, f1, cm = predict(data_loader=test_loader, net=model, loss_fn=loss_fn, require_cm=True)
     print('>>> Test:  loss={:.4f} acc={:.4f} f1={:.4f}'.format(loss, acc, f1))
     return acc, f1, cm
 

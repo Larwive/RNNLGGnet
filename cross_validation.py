@@ -410,20 +410,18 @@ class CrossValidation:
                         print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
                               .format(epoch, tl.item(), acc_train, f1_train))
 
-                        loss_val, pred_val, act_val = predict(data_loader=val_loader, net=model, loss_fn=criterion)
-                        acc_val, f1_val, _ = get_metrics(y_pred=pred_val, y_true=act_val)
-                        print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.
-                              format(epoch, loss_val, acc_val, f1_val))
+                        loss_val, acc_val, f1_val = predict(data_loader=val_loader, net=model, loss_fn=criterion)
+                        print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'. format(epoch, loss_val, acc_val,
+                                                                                        f1_val))
 
                         if acc_val >= trlog['max_acc'] and not np.isclose(acc_val, 1.):
-                            trlog['max_acc'] = acc_val
-                            trlog['F1'] = f1_val
+                            trlog['max_acc'], trlog['F1'] = acc_val, f1_val
                             save_model('candidate')
                             counter = 0
                         else:
                             counter += 1
                             if counter >= patient:
-                                print('early stopping')
+                                print('Early stopping')
                                 break
 
                         trlog['train_loss'].append(tl.item())
