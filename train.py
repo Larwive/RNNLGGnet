@@ -157,9 +157,9 @@ def test(args, data, label, reproduce, subject, fold, phase: int = 1):
         data_type = 'model'
         experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
         load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
-        model.load_state_dict(torch.load(load_path_final))
+        model.load_state_dict(torch.load(load_path_final, weights_only=False))
     else:
-        model.load_state_dict(torch.load(args.load_path_final))
+        model.load_state_dict(torch.load(args.load_path_final, weights_only=False))
     loss, pred, act = predict(
         data_loader=test_loader, net=model, loss_fn=loss_fn
     )
@@ -175,7 +175,7 @@ def combine_train(args, data, label, subject, fold, target_acc):
 
     train_loader = get_dataloader(data, label, args.batch_size)
     model = get_model(args).to(device)
-    model.load_state_dict(torch.load(args.load_path))
+    model.load_state_dict(torch.load(args.load_path, weights_only=False))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate * 1e-1)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
