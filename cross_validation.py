@@ -276,9 +276,6 @@ class CrossValidation:
             va_val = Averager()
             vf_val = Averager()
             preds, acts = [], []
-            print('Subject fold: {} excluded'.format(sub))
-            data_train, label_train, data_test, label_test = self.prepare_data_subject_fold(
-                train_data=data_train, train_label=label_train, test_data=data_test, test_label=label_test)
             print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
             data_train, label_train = self.prepare_data_subject_fold(data_train, label_train)
             data_test, label_test = self.prepare_data_subject_fold(data_test, label_test)
