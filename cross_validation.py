@@ -125,12 +125,16 @@ class CrossValidation:
 
         return datas, labels
 
-    def load_all(self, max_subject: int = 27):
+    def load_all(self, max_subject: int = 19, prepare_data=False, expand=False):
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
         for sub in range(max_subject):
             data, label = self.read_data(sub, save_path, data_type)
+            if prepare_data:
+                data, label = self.prepare_data_subject_fold(data, label)
+            if expand:
+                data = np.expand_dims(data, axis=1)
             datas.append(data)
             labels.append(label)
             print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
@@ -159,15 +163,13 @@ class CrossValidation:
         label_train = np.concatenate(label[idx_train], axis=0)
         data_test = data[idx_test]
         label_test = label[idx_test]
-        return self.normalize_data(data_train, label_train, data_test, label_test)
+        return self.normalize_data(data_train, label_train), self.normalize_data(data_test, label_test)
 
-    def prepare_data_subject_fold(self, train_data, train_label, test_data, test_label):
+    def prepare_data_subject_fold(self, data, label):
         """
 
-        :param train_data:
-        :param train_label:
-        :param test_data:
-        :param test_label:
+        :param data:
+        :param label:
         :return:
         """
 
@@ -178,27 +180,17 @@ class CrossValidation:
         To use the normalization function, we should change the dimension from
         (trial, segment, 1, chan, datapoint) to (trial*segments, 1, chan, datapoint)
         """
-        data_train = np.concatenate(train_data, axis=0)
-        label_train = np.concatenate(train_label, axis=0)
-        data_test = test_data
-        label_test = test_label
-        return self.normalize_data(data_train, label_train, data_test, label_test)
+        data = np.concatenate(data, axis=0)
+        label = np.concatenate(label, axis=0)
+        return self.normalize_data(data, label)
 
-    def normalize_data(self, data_train, label_train, data_test, label_test):
-        if len(data_test.shape) > 4:
-            """
-            When leave one trial out is conducted, the test data will be (segments, 1, chan, datapoint), hence,
-            no need to concatenate the first dimension to get trial*segments
-            """
-            data_test = np.concatenate(data_test, axis=0)
-            label_test = np.concatenate(label_test, axis=0)
+    def normalize_data(self, data, label):
+
         # data_train, data_test = self.normalize(train_data=data_train, test_data=data_test)
         # Prepare the data format for training the model using PyTorch
-        data_train = torch.from_numpy(data_train).float()
-        label_train = torch.from_numpy(label_train).long()
-        data_test = torch.from_numpy(data_test).float()
-        label_test = torch.from_numpy(label_test).long()
-        return data_train, label_train, data_test, label_test
+        data = torch.from_numpy(data).float()
+        label = torch.from_numpy(label).long()
+        return data, label
 
     @staticmethod
     def normalize(train_data, test_data):
@@ -277,17 +269,22 @@ class CrossValidation:
         ttf = []  # total test f1
         tvf = []  # total validation f1
 
-        for subs in subject_fold(subject, rate):
-            sub = subs[0]
-            data_train, label_train = self.load_all_except_some(subs, shuffle=shuffle)
-            data_test, label_test = self.load_subjects(subs)
+        for excluded_subs in subject_fold(subject, rate):
+            sub = excluded_subs[0]
+            data_train, label_train = self.load_all_except_some(excluded_subs, shuffle=shuffle)
+            data_test, label_test = self.load_subjects(excluded_subs)
             va_val = Averager()
             vf_val = Averager()
             preds, acts = [], []
             print('Subject fold: {} excluded'.format(sub))
             data_train, label_train, data_test, label_test = self.prepare_data_subject_fold(
                 train_data=data_train, train_label=label_train, test_data=data_test, test_label=label_test)
+            print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
+            data_train, label_train = self.prepare_data_subject_fold(data_train, label_train)
+            data_test, label_test = self.prepare_data_subject_fold(data_test, label_test)
 
+            data_train = np.expand_dims(data_train, axis=1)
+            data_test = np.expand_dims(data_test, axis=1)
             if self.args.reproduce:
                 acc_test, pred, act = test(args=self.args, data=data_test, label=label_test,
                                            reproduce=self.args.reproduce,
@@ -332,13 +329,17 @@ class CrossValidation:
         ttf = []  # total test f1
         tvf = []  # total validation f1
 
-        data, label = self.load_all()
+        data, label = self.load_all(prepare_data=True, expand=True)
 
         for excluded_sub in subject:
+            print('Subject fold: {} excluded'.format(excluded_sub))
             data_test = data[excluded_sub]
             label_test = label[excluded_sub]
+            #data_test, label_test = self.prepare_data_subject_fold(data_test, label_test)
+            #data_test = np.expand_dims(data_test, axis=1)
+
             val_loader = get_dataloader(data_test, label_test, self.args.batch_size)
-            model = get_RNNLGG(self.args, excluded_sub, phase)
+            model = get_RNNLGG(self.args, excluded_sub, phase=phase)
             optimizer = optim.Adam(model.parameters(), lr=0.001)
             scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.args.step_size, gamma=self.args.gamma)
             criterion = nn.BCELoss()
@@ -355,12 +356,9 @@ class CrossValidation:
                 va_val = Averager()
                 vf_val = Averager()
                 preds, acts = [], []
-                print('Subject fold: {} excluded'.format(sub))
-                data_train, label_train, data_test, label_test = self.prepare_data_subject_fold(
-                    train_data=data_train, train_label=label_train, test_data=data_test, test_label=label_test)
 
-                data_train = np.expand_dims(data_train, axis=1)
-                data_test = np.expand_dims(data_test, axis=1)
+                #data_train, label_train = self.prepare_data_subject_fold(data_train, label_train)
+                #data_train = np.expand_dims(data_train, axis=1)
 
                 train_loader = get_dataloader(data_train, label_train, batch_size=self.args.batch_size)
                 acc_val = 0
@@ -379,16 +377,19 @@ class CrossValidation:
                     patient = self.args.patient
                     counter = 0
 
-                    for epoch in range(self.args.phase_2_epochs):
+                    for epoch in range(1, self.args.phase_2_epochs+1):
                         tl = Averager()
                         pred_train = []
                         act_train = []
                         for data, label in train_loader:
+                            data, label = data.to(DEVICE), label.to(DEVICE)
                             out = model(data)
-                            pred_train.extend(out.data.tolist())
+                            pred = (out >= .5).int()
+                            loss = criterion(out, label)
+
+                            pred_train.extend(pred.data.tolist())
                             act_train.extend(label.data.tolist())
 
-                            loss = criterion(out, label)
                             tl.add(loss.item())
                             loss.backward()
                             optimizer.step()
@@ -418,9 +419,11 @@ class CrossValidation:
                         trlog['val_loss'].append(loss_val)
                         trlog['val_acc'].append(acc_val)
 
-                        print(
-                            'ETA:{}/{} SUB:{}'.format(timer.measure(), timer.measure(epoch / self.args.phase_2_epochs),
-                                                      subject))
+                        acc_test, pred, act = test(args=self.args, data=data_test, label=label_test,
+                                                   reproduce=self.args.reproduce, subject=sub, fold=0)
+
+                        print('ETA:{}/{} EXC_SUB:{} SUB:{}'.format(timer.measure(),
+                                                        timer.measure(epoch / self.args.phase_2_epochs), excluded_sub, sub))
 
                 self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, preds, pred, acts, act, tva, tvf, tta,
                                              ttf)
