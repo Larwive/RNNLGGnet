@@ -453,7 +453,7 @@ class CrossValidation:
                         print('ETA:{}/{} EXC_SUB:{} SUB:{}'.format(timer.measure(),
                                                                    timer.measure(epoch / self.args.phase_2_epochs),
                                                                    ', '.join([str(sub) for sub in excluded_subs]),
-                                                                   excluded_sub))
+                                                                   sub))
 
                 self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta, ttf, acc_test, f1)
 

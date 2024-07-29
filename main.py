@@ -47,7 +47,8 @@ if __name__ == '__main__':
     parser.add_argument('--rnn-hidden-size', type=int, default=10)
     parser.add_argument('--rnn-num-layers', type=int, default=10)
     parser.add_argument('--rnn-dropout', type=float, default=.5)
-    parser.add_argument('--skip-to', type=int, default=1)  # Skip to the specified
+    parser.add_argument('--start-phase', type=int, default=1)
+    parser.add_argument('--end-phase', type=int, default=3)
     parser.add_argument('--phase-2-epochs', type=int, default=200)
     parser.add_argument('--phase-3-epochs', type=int, default=200)
 
@@ -62,18 +63,20 @@ if __name__ == '__main__':
     # Reproduce the result using the saved model ######
     parser.add_argument('--reproduce', action='store_true')
     args = parser.parse_args()
+    assert args.start_phase <= args.end_phase
+
     sub_to_run = np.arange(args.start_subject, args.start_subject + args.subjects)
     pd = PrepareData(args)
     pd.run(sub_to_run, split=True, expand=True)
     cv = CrossValidation(args)
     seed_all(args.random_seed)
 
-    if args.skip_to <= 1:
+    if args.start_phase <= 1 <= args.end_phase:
         banner_print("Phase 1")
         cv.subject_fold_CV(subjects=sub_to_run, rand_state=args.kfold_rand_state)
-    if args.skip_to <= 2:
+    if args.start_phase <= 2 <= args.end_phase:
         banner_print("Phase 2")
         cv.subject_fold_cv_phase_2_3(subjects=sub_to_run, phase=2)
-    if args.skip_to <= 3:
+    if args.start_phase <= 3 <= args.end_phase:
         banner_print("Phase 3")
         cv.subject_fold_cv_phase_2_3(subjects=sub_to_run, phase=3)
