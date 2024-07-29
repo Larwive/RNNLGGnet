@@ -307,18 +307,19 @@ class CrossValidation:
             data_test = np.expand_dims(data_test, axis=1)
             if self.args.reproduce:
                 acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
-                                        subject=sub, fold=0)
+                                        subject=sub)
                 acc_val = 0
                 f1_val = 0
             else:
                 # to train new models
                 acc_val, f1_val = self.first_stage(data=data_train, label=label_train, subject=sub, fold=0,
-                                                   rand_state=rand_state)
+                                                   rand_state=rand_state, phase=1)
 
-                combine_train(args=self.args, data=data_train, label=label_train, subject=sub, fold=0, target_acc=1)
+                combine_train(args=self.args, data=data_train, label=label_train, subject=sub, fold=0, target_acc=1,
+                              phase=1)
 
                 acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
-                                        subject=sub, fold=0)
+                                        subject=sub)
             self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta,
                                          ttf, acc_test, f1)
 
@@ -332,12 +333,6 @@ class CrossValidation:
         :param rate: The percentage of subjects for the multiple-subject-wise cross-validation.
         """
 
-        def save_model(name):
-            previous_model = osp.join(self.args.save_path, 'RNN_LGG_{}.pth'.format(name))
-            if os.path.exists(previous_model):
-                os.remove(previous_model)
-            torch.save(model.state_dict(), osp.join(self.args.save_path, 'RNN_LGG_{}.pth'.format(name)))
-
         if subjects is None:
             subjects = [0]
         tta = []  # total test accuracy
@@ -350,12 +345,15 @@ class CrossValidation:
         for excluded_subs in subject_fold(subjects, rate):
             print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
             excluded_sub = excluded_subs[0]
-            data_test = reduce(lambda x, y: np.concatenate((x, y), axis=1), [all_data[sub] for sub in excluded_subs])
-            label_test = reduce(lambda x, y: np.concatenate((x, y), axis=1), [all_label[sub] for sub in excluded_subs])
-            data_test, label_test = self.prepare_data_subject_fold(data_test, label_test)
-            data_test = np.expand_dims(data_test, axis=1)
+            datas_test, labels_test = [], []
+            for excl_sub in excluded_subs:
+                data_test, label_test = self.prepare_data_subject_fold(all_data[excl_sub], all_label[excl_sub])
+                data_test = np.expand_dims(data_test, axis=1)
+                datas_test.append(data_test)
+                labels_test.append(label_test)
 
-            val_loader = get_dataloader(data_test, label_test, self.args.batch_size)
+            val_loaders = [get_dataloader(data_test, label_test, self.args.batch_size) for data_test, label_test in
+                           zip(datas_test, labels_test)]
             model = get_RNNLGG(self.args, excluded_sub, phase=phase)
             optimizer = optim.Adam(model.parameters(), lr=0.001)
             scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.args.step_size, gamma=self.args.gamma)
@@ -380,8 +378,8 @@ class CrossValidation:
                 acc_val = 0
                 f1_val = 0
                 if self.args.reproduce:
-                    acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test,
-                                            reproduce=self.args.reproduce, subject=sub, fold=0, phase=phase)
+                    acc_test, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders,
+                                                      reproduce=self.args.reproduce, subject=sub)
                 else:
                     trlog = {'args': vars(self.args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [],
                              'max_acc': 0.0, 'F1': 0.0}
@@ -393,9 +391,16 @@ class CrossValidation:
                         tl = Averager()
                         pred_train = []
                         act_train = []
+                        h_0 = None
                         for data, label in train_loader:
+                            actual_batch_size = data.size(0)
+
+                            if h_0 is not None and h_0.size(1) != actual_batch_size:
+                                h_0 = torch.zeros(h_0.size(0), actual_batch_size, h_0.size(2), device=DEVICE)
+
                             data, label = data.to(DEVICE), label.to(DEVICE)
-                            out = model(data)
+                            out, h_0 = model(data, h_0)
+                            h_0 = h_0.detach()
                             pred = (out >= .5).int()
                             loss = criterion(out, label)
 
@@ -410,13 +415,25 @@ class CrossValidation:
                         print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
                               .format(epoch, tl.item(), acc_train, f1_train))
 
-                        loss_val, acc_val, f1_val = predict(data_loader=val_loader, net=model, loss_fn=criterion)
-                        print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'. format(epoch, loss_val, acc_val,
-                                                                                        f1_val))
+                        loss_val, acc_val, f1_val = predict_phase_2_3(data_loaders=val_loaders, net=model,
+                                                                      loss_fn=criterion)
+                        print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val,
+                                                                                       f1_val))
 
                         if acc_val >= trlog['max_acc'] and not np.isclose(acc_val, 1.):
                             trlog['max_acc'], trlog['F1'] = acc_val, f1_val
-                            save_model('candidate')
+                            # save model here for reproduce
+                            model_name_reproduce = 'sub{}_phase{}.pth'.format(excluded_sub, phase)
+                            model_name_final = 'final_model_phase{}.pth'.format(phase)  # Save final model here ? Not global save.
+                            data_type = 'model'
+                            experiment_setting = 'T_{}_pool_{}'.format(self.args.T, self.args.pool)
+                            save_path = osp.join(self.args.save_path, experiment_setting, data_type)
+                            ensure_path(save_path)
+                            model_name_reproduce = osp.join(save_path, model_name_reproduce)
+                            model_name_final = osp.join(self.args.save_path, model_name_final)
+                            torch.save(model.state_dict(), model_name_reproduce)
+                            torch.save(model.state_dict(), model_name_final)
+
                             counter = 0
                         else:
                             counter += 1
@@ -429,8 +446,8 @@ class CrossValidation:
                         trlog['val_loss'].append(loss_val)
                         trlog['val_acc'].append(acc_val)
 
-                        acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test,
-                                                reproduce=self.args.reproduce, subject=sub, fold=0)
+                        acc_test, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders,
+                                                          reproduce=self.args.reproduce, subject=sub)
 
                         print('ETA:{}/{} EXC_SUB:{} SUB:{}'.format(timer.measure(),
                                                                    timer.measure(epoch / self.args.phase_2_epochs),
@@ -466,7 +483,7 @@ class CrossValidation:
         print('Final: val mean ACC:{} std:{}'.format(mACC_val, std_val))
         print('Final: val mean F1:{}'.format(mF1_val))
 
-    def first_stage(self, data, label, subject, fold, rand_state=None):
+    def first_stage(self, data, label, subject, fold, rand_state=None, phase: int = 1):
         """
         this function achieves n-fold-CV to:
             1. select hyperparameters on training data
@@ -476,6 +493,7 @@ class CrossValidation:
         :param subject: which subject the data belongs to
         :param fold: which fold the data belongs to
         :param rand_state: See sklearn.model_selection._split.KFold
+        :param phase: The current training phase
         :return: mean validation accuracy
         """
         # use n-fold-CV to select hyperparameters on training data
@@ -495,7 +513,7 @@ class CrossValidation:
                                     data_val=data_val,
                                     label_val=label_val,
                                     subject=subject,
-                                    fold=fold)
+                                    fold=fold, phase=phase)
 
             va.add(acc_val)
             vf.add(F1_val)
@@ -503,8 +521,8 @@ class CrossValidation:
             if acc_val >= maxAcc:
                 maxAcc = acc_val
                 # choose the model with higher val acc as the model to second stage
-                old_name = osp.join(self.args.save_path, 'candidate.pth')
-                new_name = osp.join(self.args.save_path, 'max-acc.pth')
+                old_name = osp.join(self.args.save_path, 'candidate_phase{}.pth'.format(phase))
+                new_name = osp.join(self.args.save_path, 'max-acc_phase{}.pth'.format(phase))
                 if os.path.exists(new_name):
                     os.remove(new_name)
                 os.rename(old_name, new_name)

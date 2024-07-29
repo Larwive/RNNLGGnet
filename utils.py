@@ -98,7 +98,12 @@ def pprint(x):
     _utils_pp.pprint(x)
 
 
-def get_model(args):
+def get_model(args) -> LGGNet:
+    """
+    Returns a blank LGGNet model.
+    :param args:
+    :return:
+    """
     idx_local_graph = list(np.array(h5py.File('num_chan_local_graph_{}.hdf'.format(args.graph_type), 'r')['data']))
     channels = sum(idx_local_graph)
     input_size = (args.input_shape[0], channels, args.input_shape[2])
@@ -111,19 +116,22 @@ def get_model(args):
     return model
 
 
-def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2):
+def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2) -> RNNLGGNet:
     idx_local_graph = list(np.array(h5py.File('num_chan_local_graph_{}.hdf'.format(args.graph_type), 'r')['data']))
     channels = sum(idx_local_graph)
     input_size = (args.input_shape[0], channels, args.input_shape[2])
 
-    model_name_reproduce = 'sub{}_fold{}.pth'.format(excluded_subject, fold)
+    model_name_reproduce = 'sub{}_phase{}.pth'.format(excluded_subject, phase - 1)
     data_type = 'model'
     experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
     load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
 
-    LGG = get_model(args)
-    LGG.load_state_dict(torch.load(load_path_final, weights_only=False))
-    model = RNNLGGNet(LGG, args.rnn_hidden_size, args.rnn_num_layers,
+    if phase == 2:
+        previous_model = get_model(args)
+        previous_model.load_state_dict(torch.load(load_path_final, weights_only=False))
+    else:  # phase=3 here
+        previous_model = get_RNNLGG(args, excluded_subject, fold, phase - 1)
+    model = RNNLGGNet(previous_model, args.rnn_hidden_size, args.rnn_num_layers,
                       args.rnn_dropout, phase=phase, input_size=input_size,
                       sampling_rate=int(args.sampling_rate * args.scale_coefficient),
                       num_T=args.T, out_graph=args.hidden,
@@ -140,7 +148,7 @@ def get_dataloader(data, label, batch_size):
 
 def get_metrics(y_pred, y_true, classes=None):
     if classes is None:
-        classes = [.0, .1]
+        classes = [0., 1.]
     acc = accuracy_score(y_true, y_pred)
     f1 = f1_score(y_true, y_pred)
     cm = confusion_matrix(y_true, y_pred, labels=classes)

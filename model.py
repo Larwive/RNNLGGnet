@@ -96,7 +96,8 @@ class LGGNet(nn.Module):
         self.aggregate = Aggregator(self.idx)
 
         # trainable adj weight for global network
-        self.global_adj = nn.Parameter(torch.FloatTensor(self.brain_area, self.brain_area), requires_grad=True).to(DEVICE)
+        self.global_adj = nn.Parameter(torch.FloatTensor(self.brain_area, self.brain_area), requires_grad=True).to(
+            DEVICE)
         nn.init.xavier_uniform_(self.global_adj)
         # to be used after local graph embedding
         self.bn = nn.BatchNorm1d(self.brain_area, device=DEVICE)
@@ -266,23 +267,33 @@ class RNNLGGNet(LGGNet, nn.Module):
                 param.requires_grad = False
             for param in self.bn_.parameters():
                 param.requires_grad = False
-        self.rnn = nn.GRU(self.get_size_common_forward(self.input_size)[1], hidden_size, num_layers, batch_first=True, dropout=dropout_rate)
-        self.fc = nn.Sequential(
-            nn.Dropout(p=dropout_rate),
-            nn.Linear(hidden_size, 5),
-            nn.Dropout(p=dropout_rate),
-            nn.Linear(5, 1)
-        )
-        self.sigmoid = nn.Sigmoid()
+
+        if isinstance(LGG_model, RNNLGGNet):
+            self.rnn = LGG_model.rnn
+            self.fc = LGG_model.fc
+            self.sigmoid = LGG_model.sigmoid
+        else:
+            self.rnn = nn.GRU(self.get_size_common_forward(self.input_size)[1], hidden_size, num_layers,
+                              batch_first=True, dropout=dropout_rate)
+            self.fc = nn.Sequential(
+                nn.Dropout(p=dropout_rate),
+                nn.Linear(hidden_size, 5),
+                nn.Dropout(p=dropout_rate),
+                nn.Linear(5, 1)
+            )
+            self.sigmoid = nn.Sigmoid()
 
         self.to(DEVICE)
 
-    def forward(self, x):
+    def forward(self, x, h_0=None):
+        if h_0 is None:
+            h_0 = torch.zeros(self.rnn.num_layers, x.size(0), self.rnn.hidden_size, device=DEVICE)
+
         out = self.common_forward(x)
-        out = self.rnn(out.unsqueeze(1))[0]
+        out, h_0 = self.rnn(out.unsqueeze(1), h_0)
         out = self.fc(out[:, -1, :])
         out = self.sigmoid(out)
-        return out.squeeze(1)
+        return out.squeeze(1), h_0
 
     def get_size_common_forward(self, input_size):
         # input_size: frequency x channel x data point

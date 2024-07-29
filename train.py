@@ -48,6 +48,36 @@ def predict(data_loader, net, loss_fn, require_cm: bool = False):
     return vl.item(), acc, f1
 
 
+def predict_phase_2_3(data_loaders, net, loss_fn, require_cm: bool = False):
+    net.eval()
+    pred_val = []
+    act_val = []
+    vl = Averager()
+    with torch.no_grad():
+        for data_loader in data_loaders:
+            h_0 = None
+            for i, (x_batch, y_batch) in enumerate(data_loader):
+                actual_batch_size = x_batch.size(0)
+                if h_0 is not None and h_0.size(1) != actual_batch_size:
+                    h_0 = torch.zeros(h_0.size(0), actual_batch_size, h_0.size(2), device=DEVICE)
+
+                x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+
+                out, h_0 = net(x_batch, h_0)
+                h_0 = h_0.detach()
+
+                loss = loss_fn(out, y_batch)
+                # _, pred = torch.max(out, 1)
+                pred = (out >= .5).int()
+                vl.add(loss.item())
+                pred_val.extend(pred.data.tolist())
+                act_val.extend(y_batch.data.tolist())
+    acc, f1, cm = get_metrics(pred_val, act_val)
+    if require_cm:
+        return vl.item(), acc, f1, cm
+    return vl.item(), acc, f1
+
+
 def set_up(args):
     set_gpu(args.gpu)
     ensure_path(args.save_path)
@@ -55,18 +85,18 @@ def set_up(args):
     torch.backends.cudnn.deterministic = True
 
 
-def train_loop(args, model, train_loader, val_loader, subject, fold):
-    save_name = '_sub' + str(subject) + '_fold' + str(fold)
+def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int):
+    save_name = '_sub{}'.format(subject)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
     loss_fn = nn.BCELoss()
 
     def save_model(name):
-        previous_model = osp.join(args.save_path, '{}.pth'.format(name))
+        previous_model = osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase))
         if os.path.exists(previous_model):
             os.remove(previous_model)
-        torch.save(model.state_dict(), osp.join(args.save_path, '{}.pth'.format(name)))
+        torch.save(model.state_dict(), osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase)))
 
     trlog = {'args': vars(args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'max_acc': 0.0,
              'F1': 0.0}
@@ -114,7 +144,7 @@ def train_loop(args, model, train_loader, val_loader, subject, fold):
     return trlog['max_acc'], trlog['F1']
 
 
-def train(args, data_train, label_train, data_val, label_val, subject, fold):
+def train(args, data_train, label_train, data_val, label_val, subject, fold, phase: int):
     seed_all(args.random_seed)
     set_up(args)
 
@@ -123,7 +153,7 @@ def train(args, data_train, label_train, data_val, label_val, subject, fold):
 
     model = get_model(args).to(device)
 
-    return train_loop(args, model, train_loader, val_loader, subject, fold)
+    return train_loop(args, model, train_loader, val_loader, subject, fold, phase)
 
 
 def train_phase_2_3(args, data_train, label_train, data_val, label_val, subject, fold, phase: int = 2):
@@ -137,10 +167,10 @@ def train_phase_2_3(args, data_train, label_train, data_val, label_val, subject,
         model = get_RNNLGG(args, subject, phase).to(device)
     else:
         model = get_RNNLGG(args, subject, phase).to(device)
-    return train_loop(args, model, train_loader, val_loader, subject, fold)
+    return train_loop(args, model, train_loader, val_loader, subject, fold, phase)
 
 
-def test(args, data, label, reproduce, subject, fold, phase: int = 1):
+def test(args, data, label, reproduce, subject, phase: int = 1):
     set_up(args)
     seed_all(args.random_seed)
 
@@ -153,26 +183,48 @@ def test(args, data, label, reproduce, subject, fold, phase: int = 1):
     loss_fn = nn.BCELoss()  # Consider nn.BCEWithLogitsLoss() ?
 
     if reproduce:
-        model_name_reproduce = 'sub' + str(subject) + '_fold' + str(fold) + '.pth'
+        model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
         data_type = 'model'
         experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
         load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
         model.load_state_dict(torch.load(load_path_final, weights_only=False))
     else:
-        model.load_state_dict(torch.load(args.load_path_final, weights_only=False))
+        model.load_state_dict(torch.load(args.load_path_final.format(phase), weights_only=False))
     loss, acc, f1, cm = predict(data_loader=test_loader, net=model, loss_fn=loss_fn, require_cm=True)
     print('>>> Test:  loss={:.4f} acc={:.4f} f1={:.4f}'.format(loss, acc, f1))
     return acc, f1, cm
 
+def test_phase_2_3(args, test_loaders, reproduce, subject, phase: int = 2):
+    set_up(args)
+    seed_all(args.random_seed)
 
-def combine_train(args, data, label, subject, fold, target_acc):
-    save_name = '_sub' + str(subject) + '_fold' + str(fold)
+    if phase == 1:
+        model = get_model(args).to(device)
+    else:
+        model = get_RNNLGG(args, subject, phase).to(device)
+    loss_fn = nn.BCELoss()  # Consider nn.BCEWithLogitsLoss() ?
+
+    if reproduce:
+        model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
+        data_type = 'model'
+        experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
+        load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
+        model.load_state_dict(torch.load(load_path_final, weights_only=False))
+    else:
+        model.load_state_dict(torch.load(args.load_path_final.format(phase), weights_only=False))
+    loss, acc, f1, cm = predict_phase_2_3(data_loaders=test_loaders, net=model, loss_fn=loss_fn, require_cm=True)
+    print('>>> Test:  loss={:.4f} acc={:.4f} f1={:.4f}'.format(loss, acc, f1))
+
+    return acc, f1, cm
+
+def combine_train(args, data, label, subject, fold, target_acc, phase: int):
+    save_name = '_sub{}'.format(subject)
     set_up(args)
     seed_all(args.random_seed)
 
     train_loader = get_dataloader(data, label, args.batch_size)
     model = get_model(args).to(device)
-    model.load_state_dict(torch.load(args.load_path, weights_only=False))
+    model.load_state_dict(torch.load(args.load_path.format(phase), weights_only=False))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate * 1e-1)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
@@ -180,10 +232,10 @@ def combine_train(args, data, label, subject, fold, target_acc):
     loss_fn = nn.CrossEntropyLoss()
 
     def save_model(name):
-        previous_model = osp.join(args.save_path, '{}.pth'.format(name))
+        previous_model = osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase))
         if os.path.exists(previous_model):
             os.remove(previous_model)
-        torch.save(model.state_dict(), osp.join(args.save_path, '{}.pth'.format(name)))
+        torch.save(model.state_dict(), osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase)))
 
     trlog = {'args': vars(args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'max_acc': 0.0}
 
@@ -201,7 +253,7 @@ def combine_train(args, data, label, subject, fold, target_acc):
             print('early stopping!')
             save_model('final_model')
             # save model here for reproduce
-            model_name_reproduce = 'sub' + str(subject) + '_fold' + str(fold) + '.pth'
+            model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
             data_type = 'model'
             experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
             save_path = osp.join(args.save_path, experiment_setting, data_type)
