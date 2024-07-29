@@ -268,7 +268,7 @@ class RNNLGGNet(LGGNet, nn.Module):
             for param in self.bn_.parameters():
                 param.requires_grad = False
 
-        if isinstance(LGG_model, RNNLGGNet):
+        if isinstance(LGG_model, RNNLGGNet):  # phase 3 so we reuse the training for 2nd phase
             self.rnn = LGG_model.rnn
             self.fc = LGG_model.fc
             self.sigmoid = LGG_model.sigmoid
@@ -286,7 +286,7 @@ class RNNLGGNet(LGGNet, nn.Module):
         self.to(DEVICE)
 
     def forward(self, x, h_0=None):
-        if h_0 is None:
+        if h_0 is None:  # Doesn't work if batch size changes
             h_0 = torch.zeros(self.rnn.num_layers, x.size(0), self.rnn.hidden_size, device=DEVICE)
 
         out = self.common_forward(x)
