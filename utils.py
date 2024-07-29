@@ -150,7 +150,7 @@ def get_metrics(y_pred, y_true, classes=None):
     if classes is None:
         classes = [0., 1.]
     acc = accuracy_score(y_true, y_pred)
-    f1 = f1_score(y_true, y_pred)
+    f1 = f1_score(y_true, y_pred, zero_division=0)
     cm = confusion_matrix(y_true, y_pred, labels=classes)
     return acc, f1, cm
 
