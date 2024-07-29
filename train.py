@@ -194,6 +194,7 @@ def test(args, data, label, reproduce, subject, phase: int = 1):
     print('>>> Test:  loss={:.4f} acc={:.4f} f1={:.4f}'.format(loss, acc, f1))
     return acc, f1, cm
 
+
 def test_phase_2_3(args, test_loaders, reproduce, subject, phase: int = 2):
     set_up(args)
     seed_all(args.random_seed)
@@ -216,6 +217,7 @@ def test_phase_2_3(args, test_loaders, reproduce, subject, phase: int = 2):
     print('>>> Test:  loss={:.4f} acc={:.4f} f1={:.4f}'.format(loss, acc, f1))
 
     return acc, f1, cm
+
 
 def combine_train(args, data, label, subject, fold, target_acc, phase: int):
     save_name = '_sub{}'.format(subject)

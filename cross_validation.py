@@ -424,7 +424,8 @@ class CrossValidation:
                             trlog['max_acc'], trlog['F1'] = acc_val, f1_val
                             # save model here for reproduce
                             model_name_reproduce = 'sub{}_phase{}.pth'.format(excluded_sub, phase)
-                            model_name_final = 'final_model_phase{}.pth'.format(phase)  # Save final model here ? Not global save.
+                            model_name_final = 'final_model_phase{}.pth'.format(
+                                phase)  # Save final model here ? Not global save.
                             data_type = 'model'
                             experiment_setting = 'T_{}_pool_{}'.format(self.args.T, self.args.pool)
                             save_path = osp.join(self.args.save_path, experiment_setting, data_type)
@@ -447,11 +448,12 @@ class CrossValidation:
                         trlog['val_acc'].append(acc_val)
 
                         acc_test, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders,
-                                                          reproduce=self.args.reproduce, subject=sub)
+                                                          reproduce=self.args.reproduce, subject=excluded_sub)
 
                         print('ETA:{}/{} EXC_SUB:{} SUB:{}'.format(timer.measure(),
                                                                    timer.measure(epoch / self.args.phase_2_epochs),
-                                                                   ', '.join([str(sub) for sub in excluded_subs]), sub))
+                                                                   ', '.join([str(sub) for sub in excluded_subs]),
+                                                                   excluded_sub))
 
                 self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta, ttf, acc_test, f1)
 
