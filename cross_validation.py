@@ -66,6 +66,7 @@ class CrossValidation:
         """
         Load data for a subject.
         :param sub: The subject number to read data of.
+        :param verbose: Whether to print additional information.
         :return: Data and label of the subject.
         """
         save_path = os.getcwd()
@@ -85,12 +86,14 @@ class CrossValidation:
             labels = labels[permutation]
         return datas, labels
 
-    def load_all_except_one(self, excluded_sub: int, max_subject: int = 19, shuffle: bool = False, verbose: bool = True):
+    def load_all_except_one(self, excluded_sub: int, max_subject: int = 19, shuffle: bool = False,
+                            verbose: bool = True):
         """
         Load data for all subjects except one.
         :param excluded_sub: The subject number to exclude from loading.
         :param max_subject: The max subject number to load.
         :param shuffle: Whether to shuffle the data.
+        :param verbose: Whether to print additional information.
         :return: Datas and labels of wanted subjects.
         """
         save_path = os.getcwd()
@@ -112,6 +115,7 @@ class CrossValidation:
         :param excluded_subs: The subject numbers to exclude from loading.
         :param max_subject: The max subject number to load.
         :param shuffle: Whether to shuffle the data.
+        :param verbose: Whether to print additional information.
         :return: Datas and labels of wanted subjects.
         """
         save_path = os.getcwd()
@@ -132,6 +136,7 @@ class CrossValidation:
         Load some subjects' data.
         :param subjects: The subjects to load data of.
         :param shuffle: Whether to shuffle the data.
+        :param verbose: Whether to print additional information.
         :return: Datas and labels of wanted subjects.
         """
         save_path = os.getcwd()
@@ -151,6 +156,7 @@ class CrossValidation:
         :param max_subject: The max subject number to load.
         :param prepare_data: Whether to prepare the data.
         :param expand: Whether to expand data.
+        :param verbose: Whether to print additional information.
         :return: Datas and labels of all subjects.
         """
         save_path = os.getcwd()
@@ -300,7 +306,8 @@ class CrossValidation:
 
         for excluded_subs in subject_fold(subjects, rate):
             sub = excluded_subs[0]
-            data_train, label_train = self.load_all_except_some(excluded_subs, shuffle=shuffle, verbose=not self.args.reproduce)
+            data_train, label_train = self.load_all_except_some(excluded_subs, shuffle=shuffle,
+                                                                verbose=not self.args.reproduce)
             data_test, label_test = self.load_subjects(excluded_subs, verbose=not self.args.reproduce)
             va_val = Averager()
             vf_val = Averager()
@@ -326,6 +333,7 @@ class CrossValidation:
 
                 acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
                                         subject=sub)
+                print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
             self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta,
                                          ttf, acc_test, f1)
 
@@ -419,13 +427,15 @@ class CrossValidation:
                             optimizer.step()
                             scheduler.step()
                         acc_train, f1_train, _ = get_metrics(y_pred=pred_train, y_true=act_train)
-                        print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
-                              .format(epoch, tl.item(), acc_train, f1_train))
+                        if epoch % 5 == 0 or epoch < 6:
+                            print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
+                                  .format(epoch, tl.item(), acc_train, f1_train))
 
                         loss_val, acc_val, f1_val = predict_phase_2_3(data_loaders=val_loaders, net=model,
                                                                       loss_fn=criterion)
-                        print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val,
-                                                                                       f1_val))
+                        if epoch % 5 == 0 or epoch < 6:
+                            print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val,
+                                                                                           f1_val))
 
                         if acc_val >= trlog['max_acc'] and not np.isclose(acc_val, 1.):
                             trlog['max_acc'], trlog['F1'] = acc_val, f1_val
@@ -454,13 +464,15 @@ class CrossValidation:
                         trlog['val_loss'].append(loss_val)
                         trlog['val_acc'].append(acc_val)
 
-                        acc_test, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders,
-                                                          reproduce=self.args.reproduce, subject=excluded_sub)
 
-                        print('ETA:{}/{} EXC_SUB:{} SUB:{}'.format(timer.measure(),
-                                                                   timer.measure(epoch / self.args.phase_2_epochs),
-                                                                   ', '.join([str(sub) for sub in excluded_subs]),
-                                                                   sub))
+                        if epoch % 5 == 0 or epoch < 6:
+                            print('ETA:{}/{} EXC_SUB:{} SUB:{}'.format(timer.measure(),
+                                                                       timer.measure(epoch / self.args.phase_2_epochs),
+                                                                       ', '.join([str(sub) for sub in excluded_subs]),
+                                                                       sub))
+                    acc_test, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders,
+                                                      reproduce=self.args.reproduce, subject=excluded_sub)
+                    print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
 
                 self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta, ttf, acc_test, f1)
 
@@ -475,8 +487,7 @@ class CrossValidation:
         tta.append(acc)
         ttf.append(f1)
 
-    @staticmethod
-    def final_print(tta, ttf, tva, tvf):
+    def final_print(self, tta, ttf, tva, tvf):
         # prepare final report
         tta = np.array(tta)
         ttf = np.array(ttf)
@@ -490,8 +501,9 @@ class CrossValidation:
         mF1_val = np.mean(tvf)
         print('Final: test mean ACC:{} std:{}'.format(mACC, std))
         print('Final: test mean F1:{}'.format(mF1))
-        print('Final: val mean ACC:{} std:{}'.format(mACC_val, std_val))
-        print('Final: val mean F1:{}'.format(mF1_val))
+        if not self.args.reproduce:
+            print('Final: val mean ACC:{} std:{}'.format(mACC_val, std_val))
+            print('Final: val mean F1:{}'.format(mF1_val))
 
     def first_stage(self, data, label, subject, fold, rand_state=None, phase: int = 1):
         """

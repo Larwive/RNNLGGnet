@@ -111,11 +111,13 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
             data_loader=train_loader, net=model, loss_fn=loss_fn, optimizer=optimizer, scheduler=scheduler)
 
         acc_train, f1_train, _ = get_metrics(y_pred=pred_train, y_true=act_train)
-        print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
+        if epoch % 5 == 0 or epoch < 6:
+            print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
               .format(epoch, loss_train, acc_train, f1_train))
 
         loss_val, acc_val, f1_val = predict(data_loader=val_loader, net=model, loss_fn=loss_fn)
-        print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val, f1_val))
+        if epoch % 5 == 0 or epoch < 6:
+            print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val, f1_val))
 
         if acc_val >= trlog['max_acc'] and not np.isclose(acc_val, 1.):
             trlog['max_acc'], trlog['F1'] = acc_val, f1_val
@@ -131,8 +133,8 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
         trlog['train_acc'].append(acc_train)
         trlog['val_loss'].append(loss_val)
         trlog['val_acc'].append(acc_val)
-
-        print('ETA:{}/{} SUB:{} FOLD:{}'.format(timer.measure(), timer.measure(epoch / args.max_epoch),
+        if epoch % 5 == 0 or epoch < 6:
+            print('ETA:{}/{} SUB:{} FOLD:{}'.format(timer.measure(), timer.measure(epoch / args.max_epoch),
                                                 subject, fold))
     # save the training log file
     save_name = 'trlog' + save_name
