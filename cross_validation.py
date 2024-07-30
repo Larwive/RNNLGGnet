@@ -313,6 +313,7 @@ class CrossValidation:
             if self.args.reproduce:
                 acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
                                         subject=sub)
+                print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
                 acc_val = 0
                 f1_val = 0
             else:
@@ -328,7 +329,7 @@ class CrossValidation:
             self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta,
                                          ttf, acc_test, f1)
 
-        self.final_print(tta, tva, tvf)
+        self.final_print(tta, ttf, tva, tvf)
 
     def subject_fold_cv_phase_2_3(self, subjects=None, phase: int = 2, rate: float = .2):
         """
@@ -385,6 +386,7 @@ class CrossValidation:
                 if self.args.reproduce:
                     acc_test, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders,
                                                       reproduce=self.args.reproduce, subject=sub)
+                    print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
                 else:
                     trlog = {'args': vars(self.args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [],
                              'max_acc': 0.0, 'F1': 0.0}
@@ -462,7 +464,7 @@ class CrossValidation:
 
                 self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta, ttf, acc_test, f1)
 
-        self.final_print(tta, tva, tvf)
+        self.final_print(tta, ttf, tva, tvf)
 
     @staticmethod
     def aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta, ttf, acc, f1):
@@ -474,19 +476,20 @@ class CrossValidation:
         ttf.append(f1)
 
     @staticmethod
-    def final_print(tta, tva, tvf):
+    def final_print(tta, ttf, tva, tvf):
         # prepare final report
         tta = np.array(tta)
-        # ttf = np.array(ttf)
+        ttf = np.array(ttf)
         tva = np.array(tva)
         tvf = np.array(tvf)
         mACC = np.mean(tta)
-        # mF1 = np.mean(ttf)
+        mF1 = np.mean(ttf)
         std = np.std(tta)
         mACC_val = np.mean(tva)
         std_val = np.std(tva)
         mF1_val = np.mean(tvf)
         print('Final: test mean ACC:{} std:{}'.format(mACC, std))
+        print('Final: test mean F1:{}'.format(mF1))
         print('Final: val mean ACC:{} std:{}'.format(mACC_val, std_val))
         print('Final: val mean F1:{}'.format(mF1_val))
 
