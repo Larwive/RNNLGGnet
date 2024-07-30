@@ -52,9 +52,7 @@ class PrepareData:
                     data=data_, label=label_, segment_length=self.args.segment,
                     overlap=self.args.overlap, sampling_rate=self.args.sampling_rate)
 
-            print('Data and label prepared!')
-            print('data:' + str(data_.shape) + ' label:' + str(label_.shape))
-            print('----------------------')
+            print('Data and label prepared!\ndata:{} label:{}\n----------------------'.format(data_.shape, label_.shape))
             self.save(data_, label_, sub)
 
     def load_data_per_subject(self, sub: int) -> tuple[np.ndarray, np.ndarray]:

@@ -62,7 +62,7 @@ class CrossValidation:
             label = np.array(dataset['label'])
         return data, label
 
-    def load_per_subject(self, sub: int):
+    def load_per_subject(self, sub: int, verbose: bool = True):
         """
         Load data for a subject.
         :param sub: The subject number to read data of.
@@ -71,7 +71,8 @@ class CrossValidation:
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         data, label = self.read_data(sub, save_path, data_type)
-        print('>>> Data:{} Label:{}'.format(data.shape, label.shape))
+        if verbose:
+            print('>>> Data:{} Label:{}'.format(data.shape, label.shape))
         return data, label
 
     @staticmethod
@@ -84,7 +85,7 @@ class CrossValidation:
             labels = labels[permutation]
         return datas, labels
 
-    def load_all_except_one(self, excluded_sub: int, max_subject: int = 19, shuffle: bool = False):
+    def load_all_except_one(self, excluded_sub: int, max_subject: int = 19, shuffle: bool = False, verbose: bool = True):
         """
         Load data for all subjects except one.
         :param excluded_sub: The subject number to exclude from loading.
@@ -101,10 +102,11 @@ class CrossValidation:
             data, label = self.read_data(sub, save_path, data_type)
             datas.append(data)
             labels.append(label)
-            print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
+            if verbose:
+                print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
         return self.reduce_data(datas, labels, shuffle)
 
-    def load_all_except_some(self, excluded_subs, max_subject: int = 19, shuffle: bool = False):
+    def load_all_except_some(self, excluded_subs, max_subject: int = 19, shuffle: bool = False, verbose: bool = True):
         """
         Load data for all subjects except one.
         :param excluded_subs: The subject numbers to exclude from loading.
@@ -121,10 +123,11 @@ class CrossValidation:
             data, label = self.read_data(sub, save_path, data_type)
             datas.append(data)
             labels.append(label)
-            print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
+            if verbose:
+                print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
         return self.reduce_data(datas, labels, shuffle)
 
-    def load_subjects(self, subjects, shuffle: bool = False):
+    def load_subjects(self, subjects, shuffle: bool = False, verbose: bool = True):
         """
         Load some subjects' data.
         :param subjects: The subjects to load data of.
@@ -138,10 +141,11 @@ class CrossValidation:
             data, label = self.read_data(sub, save_path, data_type)
             datas.append(data)
             labels.append(label)
-            print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
+            if verbose:
+                print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
         return self.reduce_data(datas, labels, shuffle)
 
-    def load_all(self, max_subject: int = 19, prepare_data=False, expand=False):
+    def load_all(self, max_subject: int = 19, prepare_data=False, expand=False, verbose: bool = True):
         """
         Load all subjects' data.
         :param max_subject: The max subject number to load.
@@ -160,7 +164,8 @@ class CrossValidation:
                 data = np.expand_dims(data, axis=1)
             datas.append(data)
             labels.append(label)
-            print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
+            if verbose:
+                print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
 
         return datas, labels
 
@@ -295,8 +300,8 @@ class CrossValidation:
 
         for excluded_subs in subject_fold(subjects, rate):
             sub = excluded_subs[0]
-            data_train, label_train = self.load_all_except_some(excluded_subs, shuffle=shuffle)
-            data_test, label_test = self.load_subjects(excluded_subs)
+            data_train, label_train = self.load_all_except_some(excluded_subs, shuffle=shuffle, verbose=not self.args.reproduce)
+            data_test, label_test = self.load_subjects(excluded_subs, verbose=not self.args.reproduce)
             va_val = Averager()
             vf_val = Averager()
             print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
@@ -340,7 +345,7 @@ class CrossValidation:
         ttf = []  # total test f1
         tvf = []  # total validation f1
 
-        all_data, all_label = self.load_all()
+        all_data, all_label = self.load_all(verbose=not self.args.reproduce)
 
         for excluded_subs in subject_fold(subjects, rate):
             print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))

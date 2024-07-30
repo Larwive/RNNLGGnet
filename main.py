@@ -1,6 +1,6 @@
+import argparse
 from cross_validation import *
 from prepare_data import *
-import argparse
 
 
 def banner_print(message) -> None:
