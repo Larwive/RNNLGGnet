@@ -426,7 +426,7 @@ class CrossValidation:
                             loss.backward()
                             optimizer.step()
                             scheduler.step()
-                        acc_train, f1_train, _ = get_metrics(y_pred=pred_train, y_true=act_train)
+                        acc_train, f1_train = get_metrics(y_pred=pred_train, y_true=act_train, get_cm=False)
                         if epoch % 5 == 0 or epoch < 6:
                             print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
                                   .format(epoch, tl.item(), acc_train, f1_train))
@@ -437,7 +437,7 @@ class CrossValidation:
                             print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val,
                                                                                            f1_val))
 
-                        if acc_val >= trlog['max_acc'] and not np.isclose(acc_val, 1.):
+                        if acc_val > trlog['max_acc'] and not np.isclose(acc_val, 1.):
                             trlog['max_acc'], trlog['F1'] = acc_val, f1_val
                             # save model here for reproduce
                             model_name_reproduce = 'sub{}_phase{}.pth'.format(excluded_sub, phase)

@@ -110,7 +110,7 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
         loss_train, pred_train, act_train = train_one_epoch(
             data_loader=train_loader, net=model, loss_fn=loss_fn, optimizer=optimizer, scheduler=scheduler)
 
-        acc_train, f1_train, _ = get_metrics(y_pred=pred_train, y_true=act_train)
+        acc_train, f1_train = get_metrics(y_pred=pred_train, y_true=act_train, get_cm=False)
         if epoch % 5 == 0 or epoch < 6:
             print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
               .format(epoch, loss_train, acc_train, f1_train))
@@ -119,7 +119,7 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
         if epoch % 5 == 0 or epoch < 6:
             print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val, f1_val))
 
-        if acc_val >= trlog['max_acc'] and not np.isclose(acc_val, 1.):
+        if acc_val > trlog['max_acc'] and not np.isclose(acc_val, 1.):
             trlog['max_acc'], trlog['F1'] = acc_val, f1_val
             save_model('candidate')
             counter = 0
@@ -249,7 +249,7 @@ def combine_train(args, data, label, subject, fold, target_acc, phase: int):
         loss, pred, act = train_one_epoch(
             data_loader=train_loader, net=model, loss_fn=loss_fn, optimizer=optimizer, scheduler=scheduler
         )
-        acc, f1, _ = get_metrics(y_pred=pred, y_true=act)
+        acc, f1 = get_metrics(y_pred=pred, y_true=act, get_cm=False)
         print('Stage 2 : epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
               .format(epoch, loss, acc, f1))
 
