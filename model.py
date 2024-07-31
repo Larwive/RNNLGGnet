@@ -268,11 +268,6 @@ class RNNLGGNet(LGGNet, nn.Module):
             for param in self.bn_.parameters():
                 param.requires_grad = False
 
-        if isinstance(LGG_model, RNNLGGNet):  # phase 3 so we reuse the training for 2nd phase
-            self.rnn = LGG_model.rnn
-            self.fc = LGG_model.fc
-            self.sigmoid = LGG_model.sigmoid
-        else:
             self.rnn = nn.GRU(self.get_size_common_forward(self.input_size)[1], hidden_size, num_layers,
                               batch_first=True, dropout=dropout_rate)
             self.fc = nn.Sequential(
@@ -282,6 +277,12 @@ class RNNLGGNet(LGGNet, nn.Module):
                 nn.Linear(5, 1)
             )
             self.sigmoid = nn.Sigmoid()
+
+        else:  # phase 3 so we reuse the training for 2nd phase
+            self.rnn = LGG_model.rnn
+            self.fc = LGG_model.fc
+            self.sigmoid = LGG_model.sigmoid
+
 
         self.to(DEVICE)
 
