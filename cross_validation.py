@@ -106,8 +106,6 @@ class CrossValidation:
                 labels[i] = np.concatenate((labels[i], labels[i][:, offset:offset + tmp_augment]), axis=1)
                 act_augmented += tmp_augment
             counts[int(label[0][0])] += datas[i].shape[1]
-            print("new size", int(label[0][0]), datas[i].shape)
-        print(counts)
 
     def load_per_subject(self, sub: int, verbose: bool = True):
         """
