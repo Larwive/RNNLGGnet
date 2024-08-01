@@ -224,26 +224,62 @@ class RNNLGGNet(LGGNet, nn.Module):
         self.channel = LGG_model.channel
         self.brain_area = LGG_model.brain_area
 
-        self.Tception1 = LGG_model.Tception1
-        self.Tception2 = LGG_model.Tception2
-        self.Tception3 = LGG_model.Tception3
-        self.BN_t = LGG_model.BN_t
-        self.BN_t_ = LGG_model.BN_t_
-        self.OneXOneConv = LGG_model.OneXOneConv
+        self.Tception1 = self.temporal_learner(input_size[0], num_T,
+                                               (1, int(self.window[0] * sampling_rate)),
+                                               self.pool, pool_step_rate)
+        self.Tception2 = self.temporal_learner(input_size[0], num_T,
+                                               (1, int(self.window[1] * sampling_rate)),
+                                               self.pool, pool_step_rate)
+        self.Tception3 = self.temporal_learner(input_size[0], num_T,
+                                               (1, int(self.window[2] * sampling_rate)),
+                                               self.pool, pool_step_rate)
+        self.BN_t = nn.BatchNorm2d(num_T, device=DEVICE)
+        self.BN_t_ = nn.BatchNorm2d(num_T, device=DEVICE)
+        self.OneXOneConv = nn.Sequential(
+            nn.Conv2d(num_T, num_T, kernel_size=(1, 1), stride=(1, 1), device=DEVICE),
+            nn.LeakyReLU(),
+            nn.AvgPool2d((1, 2)))
         # diag(W) to assign a weight to each local areas
-        self.local_filter_weight = LGG_model.local_filter_weight
-        self.local_filter_bias = LGG_model.local_filter_bias
+        size = self.get_size_temporal(input_size)
+        self.local_filter_weight = nn.Parameter(torch.FloatTensor(self.channel, size[-1]),
+                                                requires_grad=True).to(DEVICE)
+        nn.init.xavier_uniform_(self.local_filter_weight)
+        self.local_filter_bias = nn.Parameter(torch.zeros((1, self.channel, 1), dtype=torch.float32),
+                                              requires_grad=True).to(DEVICE)
 
         # aggregate function
-        self.aggregate = LGG_model.aggregate
+        self.aggregate = Aggregator(self.idx)
 
         # trainable adj weight for global network
-        self.global_adj = LGG_model.global_adj
+        self.global_adj = nn.Parameter(torch.FloatTensor(self.brain_area, self.brain_area), requires_grad=True).to(
+            DEVICE)
+        nn.init.xavier_uniform_(self.global_adj)
         # to be used after local graph embedding
-        self.bn = LGG_model.bn
-        self.bn_ = LGG_model.bn
+        self.bn = nn.BatchNorm1d(self.brain_area, device=DEVICE)
+        self.bn_ = nn.BatchNorm1d(self.brain_area, device=DEVICE)
         # learn the global network of networks
-        self.GCN = LGG_model.GCN
+        self.GCN = GraphConvolution(size[-1], out_graph)
+
+        self.Tception1.load_state_dict(LGG_model.Tception1.state_dict())
+        self.Tception2.load_state_dict(LGG_model.Tception2.state_dict())
+        self.Tception3.load_state_dict(LGG_model.Tception3.state_dict())
+        self.BN_t.load_state_dict(LGG_model.BN_t.state_dict())
+        self.BN_t_.load_state_dict(LGG_model.BN_t_.state_dict())
+        self.OneXOneConv.load_state_dict(LGG_model.OneXOneConv.state_dict())
+        # diag(W) to assign a weight to each local areas
+        self.local_filter_weight.data = LGG_model.local_filter_weight.data.clone()
+        self.local_filter_bias.data = LGG_model.local_filter_bias.data.clone()
+
+        # aggregate function
+        #self.aggregate = LGG_model.aggregate
+
+        # trainable adj weight for global network
+        self.global_adj.data = LGG_model.global_adj.data.clone()
+        # to be used after local graph embedding
+        self.bn.load_state_dict(LGG_model.bn.state_dict())
+        self.bn_.load_state_dict(LGG_model.bn.state_dict())
+        # learn the global network of networks
+        self.GCN.load_state_dict(LGG_model.GCN.state_dict())
 
         if phase == 2:
             for param in self.Tception1.parameters():
