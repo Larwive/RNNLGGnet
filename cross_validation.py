@@ -62,6 +62,53 @@ class CrossValidation:
             label = np.array(dataset['label'])
         return data, label
 
+    @staticmethod
+    def augment_data(datas, labels, n_0, n_1):
+        to_augment = 0 if n_0 < n_1 else 1
+        diff = n_1 - n_0 if to_augment == 0 else n_0 - n_1
+        factor = max(n_0 // n_1, n_1 // n_0)
+        for i, (data, label) in enumerate(zip(datas, labels)):
+
+            if int(label[0][0]) == to_augment:
+                n_augmented = min(diff, data.shape[1])
+                subsubdatas = []
+                for _ in range(factor):
+                    offset = np.random.randint(data.shape[1] - n_augmented + 1)
+                    subsubdatas.append(data[:, offset:offset + n_augmented, :, :])
+                    labels[i] = np.concatenate((labels[i], labels[i][:, offset:offset + n_augmented]), axis=1)
+
+                subdata = np.concatenate(subsubdatas, axis=1)
+                datas[i] = np.concatenate((data, subdata + np.random.randn(*subdata.shape)), axis=1)
+
+                diff -= n_augmented
+
+    @staticmethod
+    def augment_data_global(datas, labels, num_0, num_1, max_0, max_1, rate: float = 1.):
+        num_0 = int(num_0 * (1-rate))
+        num_1 = int(num_1 * (1-rate))
+        to_augment = 0 if num_1 * max_1 > num_0 * max_0 else 1
+        target_max_to_augment = int(num_1 * max_1 / num_0) if to_augment == 0 else int(num_0 * max_0 / num_1)
+        target_other = max_0 if to_augment == 1 else max_1
+        counts = [0, 0]
+        for i, (data, label) in enumerate(zip(datas, labels)):
+            if int(label[0][0]) == to_augment:
+                n_augmented = target_max_to_augment - data.shape[1]
+            else:
+                n_augmented = target_other - data.shape[1]
+            if n_augmented < 1:
+                continue
+            act_augmented = 0
+            while act_augmented < n_augmented:
+                tmp_augment = min(n_augmented - act_augmented, data.shape[1])
+                offset = np.random.randint(data.shape[1] - tmp_augment + 1)
+                subdata = data[:, offset:offset + tmp_augment, :, :]
+                datas[i] = np.concatenate((datas[i], subdata + np.random.randn(*subdata.shape)), axis=1)
+                labels[i] = np.concatenate((labels[i], labels[i][:, offset:offset + tmp_augment]), axis=1)
+                act_augmented += tmp_augment
+            counts[int(label[0][0])] += datas[i].shape[1]
+            print("new size", int(label[0][0]), datas[i].shape)
+        print(counts)
+
     def load_per_subject(self, sub: int, verbose: bool = True):
         """
         Load data for a subject.
@@ -86,29 +133,6 @@ class CrossValidation:
             labels = labels[permutation]
         return datas, labels
 
-    def load_all_except_one(self, excluded_sub: int, max_subject: int = 19, shuffle: bool = False,
-                            verbose: bool = True):
-        """
-        Load data for all subjects except one.
-        :param excluded_sub: The subject number to exclude from loading.
-        :param max_subject: The max subject number to load.
-        :param shuffle: Whether to shuffle the data.
-        :param verbose: Whether to print additional information.
-        :return: Datas and labels of wanted subjects.
-        """
-        save_path = os.getcwd()
-        data_type = 'data_{}'.format(self.args.dataset)
-        datas, labels = [], []
-        for sub in range(max_subject):
-            if sub == excluded_sub:
-                continue
-            data, label = self.read_data(sub, save_path, data_type)
-            datas.append(data)
-            labels.append(label)
-            if verbose:
-                print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
-        return self.reduce_data(datas, labels, shuffle)
-
     def load_all_except_some(self, excluded_subs, max_subject: int = 19, shuffle: bool = False, verbose: bool = True):
         """
         Load data for all subjects except one.
@@ -121,14 +145,21 @@ class CrossValidation:
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
+        len_0, len_1 = 0, 0
         for sub in range(max_subject):
             if sub in excluded_subs:
                 continue
             data, label = self.read_data(sub, save_path, data_type)
             datas.append(data)
             labels.append(label)
+            if int(label[0][0]) == 0:
+                len_0 += data.shape[1]
+            else:
+                len_1 += data.shape[1]
             if verbose:
                 print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
+
+        self.augment_data(datas, labels, len_0, len_1)
         return self.reduce_data(datas, labels, shuffle)
 
     def load_subjects(self, subjects, shuffle: bool = False, verbose: bool = True):
@@ -142,15 +173,23 @@ class CrossValidation:
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
+        len_0, len_1 = 0, 0
+
         for sub in subjects:
             data, label = self.read_data(sub, save_path, data_type)
             datas.append(data)
             labels.append(label)
+            if int(label[0][0]) == 0:
+                len_0 += data.shape[1]
+            else:
+                len_1 += data.shape[1]
             if verbose:
                 print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
+        self.augment_data(datas, labels, len_0, len_1)
+
         return self.reduce_data(datas, labels, shuffle)
 
-    def load_all(self, max_subject: int = 19, prepare_data=False, expand=False, verbose: bool = True):
+    def load_all(self, max_subject: int = 19, prepare_data=False, expand=False, verbose: bool = True, rate: float = 1.):
         """
         Load all subjects' data.
         :param max_subject: The max subject number to load.
@@ -162,6 +201,8 @@ class CrossValidation:
         save_path = os.getcwd()
         data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
+        num_0, num_1 = 0, 0
+        max_0, max_1 = 0, 0
         for sub in range(max_subject):
             data, label = self.read_data(sub, save_path, data_type)
             if prepare_data:
@@ -170,8 +211,17 @@ class CrossValidation:
                 data = np.expand_dims(data, axis=1)
             datas.append(data)
             labels.append(label)
+            if int(label[0][0]) == 0:
+                num_0 += 1
+                if data.shape[1] > max_0:
+                    max_0 = data.shape[1]
+            else:
+                num_1 += 1
+                if data.shape[1] > max_1:
+                    max_1 = data.shape[1]
             if verbose:
                 print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
+        self.augment_data_global(datas, labels, num_0, num_1, max_0, max_1, rate=rate)
 
         return datas, labels
 
@@ -354,7 +404,7 @@ class CrossValidation:
         ttf = []  # total test f1
         tvf = []  # total validation f1
 
-        all_data, all_label = self.load_all(verbose=not self.args.reproduce)
+        all_data, all_label = self.load_all(verbose=not self.args.reproduce, rate=rate)
 
         for excluded_subs in subject_fold(subjects, rate):
             print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
@@ -464,7 +514,6 @@ class CrossValidation:
                         trlog['train_acc'].append(acc_train)
                         trlog['val_loss'].append(loss_val)
                         trlog['val_acc'].append(acc_val)
-
 
                         if epoch % 5 == 0 or epoch < 6:
                             print('ETA:{}/{} EXC_SUB:{} SUB:{}'.format(timer.measure(),
