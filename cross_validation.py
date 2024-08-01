@@ -84,8 +84,8 @@ class CrossValidation:
 
     @staticmethod
     def augment_data_global(datas, labels, num_0, num_1, max_0, max_1, rate: float = 1.):
-        num_0 = int(num_0 * (1-rate))
-        num_1 = int(num_1 * (1-rate))
+        num_0 = int(num_0 * (1-rate)) + (1 if num_0 > num_1 else 0)
+        num_1 = int(num_1 * (1-rate)) + (1 if num_1 > num_0 else 0)
         to_augment = 0 if num_1 * max_1 > num_0 * max_0 else 1
         target_max_to_augment = int(num_1 * max_1 / num_0) if to_augment == 0 else int(num_0 * max_0 / num_1)
         target_other = max_0 if to_augment == 1 else max_1
