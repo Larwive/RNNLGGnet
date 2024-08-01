@@ -377,7 +377,6 @@ class CrossValidation:
                     continue
 
                 model.zero_grad()
-                optimizer.zero_grad()
 
                 data_train = all_data[sub]
                 label_train = all_label[sub]
@@ -408,6 +407,8 @@ class CrossValidation:
                         act_train = []
                         h_0 = None
                         for data, label in train_loader:
+                            optimizer.zero_grad()
+
                             actual_batch_size = data.size(0)
 
                             if h_0 is not None and h_0.size(1) != actual_batch_size:
