@@ -84,8 +84,8 @@ class CrossValidation:
 
     @staticmethod
     def augment_data_global(datas, labels, num_0, num_1, max_0, max_1, rate: float = 1.):
-        num_0 = int(num_0 * (1-rate)) + (1 if num_0 > num_1 else 0)
-        num_1 = int(num_1 * (1-rate)) + (1 if num_1 > num_0 else 0)
+        num_0 = int(num_0 * (1 - rate)) + (1 if num_0 > num_1 else 0)
+        num_1 = int(num_1 * (1 - rate)) + (1 if num_1 > num_0 else 0)
         to_augment = 0 if num_1 * max_1 > num_0 * max_0 else 1
         target_max_to_augment = int(num_1 * max_1 / num_0) if to_augment == 0 else int(num_0 * max_0 / num_1)
         target_other = max_0 if to_augment == 1 else max_1
@@ -365,13 +365,9 @@ class CrossValidation:
 
             data_train = np.expand_dims(data_train, axis=1)
             data_test = np.expand_dims(data_test, axis=1)
-            if self.args.reproduce:
-                acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
-                                        subject=sub)
-                print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
-                acc_val = 0
-                f1_val = 0
-            else:
+            acc_val = 0
+            f1_val = 0
+            if not self.args.reproduce:
                 # to train new models
                 acc_val, f1_val = self.first_stage(data=data_train, label=label_train, subject=sub, fold=0,
                                                    rand_state=rand_state, phase=1)
@@ -379,11 +375,12 @@ class CrossValidation:
                 combine_train(args=self.args, data=data_train, label=label_train, subject=sub, fold=0, target_acc=1,
                               phase=1)
 
-                acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
-                                        subject=sub)
-                print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
-            self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta,
-                                         ttf, acc_test, f1)
+            acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
+                                    subject=sub)
+            print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
+            if not self.args.reproduce:
+                self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta,
+                                             ttf, acc_test, f1)
 
         self.final_print(tta, ttf, tva, tvf)
 
@@ -403,60 +400,54 @@ class CrossValidation:
         tvf = []  # total validation f1
 
         all_data, all_label = self.load_all(verbose=not self.args.reproduce, rate=rate)
+        all_data_p, all_label_p, all_dataloaders = [], [], []
+        for data, label in zip(all_data, all_label):
+            data_p, label_p = self.prepare_data_subject_fold(data, label)
+            data_p = np.expand_dims(data_p, axis=1)
+            all_data_p.append(data_p)
+            all_label_p.append(label_p)
+            all_dataloaders.append(get_dataloader(data_p, label_p, self.args.batch_size))
 
         for excluded_subs in subject_fold(subjects, rate):
             print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
             excluded_sub = excluded_subs[0]
-            datas_test, labels_test = [], []
-            for excl_sub in excluded_subs:
-                data_test, label_test = self.prepare_data_subject_fold(all_data[excl_sub], all_label[excl_sub])
-                data_test = np.expand_dims(data_test, axis=1)
-                datas_test.append(data_test)
-                labels_test.append(label_test)
 
-            val_loaders = [get_dataloader(data_test, label_test, self.args.batch_size) for data_test, label_test in
-                           zip(datas_test, labels_test)]
-            model = get_RNNLGG(self.args, excluded_sub, phase=phase)
-            optimizer = optim.Adam(model.parameters(), lr=0.001)
-            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.args.step_size, gamma=self.args.gamma)
-            criterion = nn.BCELoss()
-            for sub in subjects:
-                if sub in excluded_subs:
-                    continue
+            val_loaders = [all_dataloaders[exc] for exc in excluded_subs]
 
-                model.zero_grad()
+            acc_val = 0
+            f1_val = 0
+            patient = self.args.patient
 
-                data_train = all_data[sub]
-                label_train = all_label[sub]
+            if not self.args.reproduce:
 
+                model = get_RNNLGG(self.args, excluded_sub, phase=phase)
+                optimizer = optim.Adam(model.parameters(), lr=0.001)
+                scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.args.step_size, gamma=self.args.gamma)
+                criterion = nn.BCELoss()
                 va_val = Averager()
                 vf_val = Averager()
+                early_stopping = False
 
-                data_train, label_train = self.prepare_data_subject_fold(data_train, label_train)
-                data_train = np.expand_dims(data_train, axis=1)
+                timer = Timer()
+                trlog = {'args': vars(self.args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [],
+                         'max_acc': 0.0, 'F1': 0.0}
+                counter = 0
 
-                train_loader = get_dataloader(data_train, label_train, batch_size=self.args.batch_size)
-                acc_val = 0
-                f1_val = 0
-                if self.args.reproduce:
-                    acc_test, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders,
-                                                      reproduce=self.args.reproduce, subject=sub)
-                    print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
-                else:
-                    trlog = {'args': vars(self.args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [],
-                             'max_acc': 0.0, 'F1': 0.0}
-                    timer = Timer()
-                    patient = self.args.patient
-                    counter = 0
+                for epoch in range(1, self.args.phase_2_epochs + 1):
+                    if early_stopping:
+                        break
+                    for sub in subjects:
+                        if sub in excluded_subs:
+                            continue
 
-                    for epoch in range(1, self.args.phase_2_epochs + 1):
+                        train_loader = all_dataloaders[sub]
+
                         tl = Averager()
                         pred_train = []
                         act_train = []
                         h_0 = None
+                        optimizer.zero_grad()
                         for data, label in train_loader:
-                            optimizer.zero_grad()
-
                             actual_batch_size = data.size(0)
 
                             if h_0 is not None and h_0.size(1) != actual_batch_size:
@@ -478,12 +469,13 @@ class CrossValidation:
                         acc_train, f1_train = get_metrics(y_pred=pred_train, y_true=act_train, get_cm=False)
                         if epoch % 5 == 0 or epoch < 6:
                             print_cyan('[epoch {}] loss={:.4f} acc={:.4f} f1={:.4f}'
-                                  .format(epoch, tl.item(), acc_train, f1_train))
+                                       .format(epoch, tl.item(), acc_train, f1_train))
 
                         loss_val, acc_val, f1_val = predict_phase_2_3(data_loaders=val_loaders, net=model,
                                                                       loss_fn=criterion)
                         if epoch % 5 == 0 or epoch < 6:
-                            print_purple('[epoch {}] (val) loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val,
+                            print_purple(
+                                '[epoch {}] (val) loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val,
                                                                                            f1_val))
 
                         if acc_val > trlog['max_acc'] and not np.isclose(acc_val, 1.):
@@ -504,8 +496,9 @@ class CrossValidation:
                             counter = 0
                         else:
                             counter += 1
-                            if counter >= patient:
+                            if counter >= patient * 19:  # Number of subjects
                                 print_red('Early stopping')
+                                early_stopping = True
                                 break
 
                         trlog['train_loss'].append(tl.item())
@@ -518,10 +511,11 @@ class CrossValidation:
                                                                        timer.measure(epoch / self.args.phase_2_epochs),
                                                                        ', '.join([str(sub) for sub in excluded_subs]),
                                                                        sub))
-                    acc_test, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders,
-                                                      reproduce=self.args.reproduce, subject=excluded_sub)
-                    print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
+            acc_test, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders,
+                                              reproduce=self.args.reproduce, subject=excluded_sub)
+            print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
 
+            if not self.args.reproduce:
                 self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta, ttf, acc_test, f1)
 
         self.final_print(tta, ttf, tva, tvf)
