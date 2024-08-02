@@ -467,13 +467,12 @@ class CrossValidation:
                             optimizer.step()
                             scheduler.step()
                         acc_train, f1_train = get_metrics(y_pred=pred_train, y_true=act_train, get_cm=False)
+                        loss_val, acc_val, f1_val = predict_phase_2_3(data_loaders=val_loaders, net=model,
+                                                                      loss_fn=criterion)
                         if epoch % 5 == 0 or epoch < 6:
                             print_cyan('[epoch {}] loss={:.4f} acc={:.4f} f1={:.4f}'
                                        .format(epoch, tl.item(), acc_train, f1_train))
 
-                        loss_val, acc_val, f1_val = predict_phase_2_3(data_loaders=val_loaders, net=model,
-                                                                      loss_fn=criterion)
-                        if epoch % 5 == 0 or epoch < 6:
                             print_purple(
                                 '[epoch {}] (val) loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val,
                                                                                            f1_val))
@@ -497,6 +496,11 @@ class CrossValidation:
                         else:
                             counter += 1
                             if counter >= patient * 19:  # Number of subjects
+                                print_cyan('[epoch {}] loss={:.4f} acc={:.4f} f1={:.4f}'
+                                           .format(epoch, tl.item(), acc_train, f1_train))
+                                print_purple(
+                                    '[epoch {}] (val) loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val,
+                                                                                               f1_val))
                                 print_red('Early stopping')
                                 early_stopping = True
                                 break
