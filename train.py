@@ -112,12 +112,12 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
 
         acc_train, f1_train = get_metrics(y_pred=pred_train, y_true=act_train, get_cm=False)
         if epoch % 5 == 0 or epoch < 6:
-            print('epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
-              .format(epoch, loss_train, acc_train, f1_train))
+            print_cyan('[epoch {}] loss={:.4f} acc={:.4f} f1={:.4f}'
+                       .format(epoch, loss_train, acc_train, f1_train))
 
         loss_val, acc_val, f1_val = predict(data_loader=val_loader, net=model, loss_fn=loss_fn)
         if epoch % 5 == 0 or epoch < 6:
-            print('epoch {}, val, loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val, f1_val))
+            print_purple('[epoch {}] (val) loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val, f1_val))
 
         if acc_val > trlog['max_acc'] and not np.isclose(acc_val, 1.):
             trlog['max_acc'], trlog['F1'] = acc_val, f1_val
@@ -126,7 +126,7 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
         else:
             counter += 1
             if counter >= patient:
-                print('Early stopping')
+                print_red('Early stopping')
                 break
 
         trlog['train_loss'].append(loss_train)
@@ -135,7 +135,7 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
         trlog['val_acc'].append(acc_val)
         if epoch % 5 == 0 or epoch < 6:
             print('ETA:{}/{} SUB:{} FOLD:{}'.format(timer.measure(), timer.measure(epoch / args.max_epoch),
-                                                subject, fold))
+                                                    subject, fold))
     # save the training log file
     save_name = 'trlog' + save_name
     experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
@@ -254,7 +254,7 @@ def combine_train(args, data, label, subject, fold, target_acc, phase: int):
               .format(epoch, loss, acc, f1))
 
         if acc >= target_acc or np.isclose(acc, target_acc) or epoch == args.max_epoch_cmb:
-            print('early stopping!')
+            print_red('Early stopping!')
             save_model('final_model')
             # save model here for reproduce
             model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)

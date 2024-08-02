@@ -172,3 +172,13 @@ def L2Loss(model, Lambda):
     w = torch.cat([x.view(-1) for x in model.parameters()])
     err = Lambda * torch.sum(w.pow(2))
     return err
+
+
+def print_cyan(string):
+    print("\033[0;36m{}\033[0m".format(string))
+
+def print_purple(string):
+    print("\033[0;35m{}\033[0m".format(string))
+
+def print_red(string):
+    print("\033[0;31m{}\033[0m".format(string))
