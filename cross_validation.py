@@ -421,7 +421,10 @@ class CrossValidation:
             if not self.args.reproduce:
 
                 model = get_RNNLGG(self.args, excluded_sub, phase=phase)
-                optimizer = optim.Adam(model.parameters(), lr=0.001)
+                lr = 0.001
+                if phase ==2:
+                    lr *= 2
+                optimizer = optim.Adam(model.parameters(), lr=lr)
                 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.args.step_size, gamma=self.args.gamma)
                 criterion = nn.BCELoss()
                 va_val = Averager()
@@ -501,6 +504,12 @@ class CrossValidation:
                                 print_purple(
                                     '[epoch {}] (val) loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val,
                                                                                                f1_val))
+                                print('ETA:{}/{} EXC_SUB:{} SUB:{}'.format(timer.measure(),
+                                                                           timer.measure(
+                                                                               epoch / self.args.phase_2_epochs),
+                                                                           ', '.join(
+                                                                               [str(sub) for sub in excluded_subs]),
+                                                                           sub))
                                 print_red('Early stopping')
                                 early_stopping = True
                                 break

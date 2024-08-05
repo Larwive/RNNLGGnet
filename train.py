@@ -128,6 +128,8 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
                            .format(epoch, loss_train, acc_train, f1_train))
                 print_purple(
                     '[epoch {}] (val) loss={:.4f} acc={:.4f} f1={:.4f}'.format(epoch, loss_val, acc_val, f1_val))
+                print('ETA:{}/{} SUB:{} FOLD:{}'.format(timer.measure(), timer.measure(epoch / args.max_epoch),
+                                                        subject, fold))
                 print_red('Early stopping')
                 break
 
