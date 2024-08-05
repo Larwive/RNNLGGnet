@@ -22,9 +22,12 @@ The data is shuffled between subjects while training.
 
 ## 2nd phase (RNN part only)
 
-A bigger `RNNLGGNet` model is being trained. There is a `GRU` layer before the `fc` layer.
-All the trained parameters from the loaded `LGGNet` model are reused except for the final `fc` and `sigmoid` layers.
-This phase only trains the `GRU`, `fc` and `sigmoid` layers.
+A bigger `RNNLGGNet` model is being trained.
+The output of the `GCN` is used for the `GRU` layer and the `fc` layer from phase 1 (named `fcLGG`).
+The output of the `GRU` layer goes into another `fc` layer.
+Then, the outputs of the `fcLGG` and `fc` go into a `Linear` (named `out_weights`) layer before the `sigmoid`.
+
+This phase only trains the `GRU`, `fc`, `fcLGG` and the final `Linear` layers.
 
 Since the `GRU` layer's hidden state is intended to be specific to each subject, data isn't shuffled while training and linearly given to the model.
 Then the hidden state is reset at each new subject.

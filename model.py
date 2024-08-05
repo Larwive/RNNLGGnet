@@ -281,6 +281,25 @@ class RNNLGGNet(LGGNet, nn.Module):
         # learn the global network of networks
         self.GCN.load_state_dict(LGG_model.GCN.state_dict())
 
+        self.rnn = nn.GRU(self.get_size_common_forward(self.input_size)[1], hidden_size, num_layers,
+                          batch_first=True, dropout=dropout_rate)
+        self.fc = nn.Sequential(
+            nn.Dropout(p=dropout_rate),
+            nn.Linear(hidden_size, 5),
+            nn.Dropout(p=dropout_rate),
+            nn.Linear(5, 1)
+        )
+
+        self.fcLGG = nn.Sequential(
+            nn.Dropout(p=dropout_rate),
+            nn.Linear(int(self.brain_area * out_graph), 5, device=DEVICE),
+            nn.Dropout(p=dropout_rate),
+            nn.Linear(5, 1, device=DEVICE)
+        )
+
+        self.out_weights = nn.Linear(2, 1, device=DEVICE)
+        self.sigmoid = nn.Sigmoid()
+
         if phase == 2:
             for param in self.Tception1.parameters():
                 param.requires_grad = False
@@ -304,21 +323,14 @@ class RNNLGGNet(LGGNet, nn.Module):
             for param in self.bn_.parameters():
                 param.requires_grad = False
 
-            self.rnn = nn.GRU(self.get_size_common_forward(self.input_size)[1], hidden_size, num_layers,
-                              batch_first=True, dropout=dropout_rate)
-            self.fc = nn.Sequential(
-                nn.Dropout(p=dropout_rate),
-                nn.Linear(hidden_size, 5),
-                nn.Dropout(p=dropout_rate),
-                nn.Linear(5, 1)
-            )
-            self.sigmoid = nn.Sigmoid()
+            self.fcLGG.load_state_dict(LGG_model.fc.state_dict())
 
-        else:  # phase 3 so we reuse the training for 2nd phase
-            self.rnn = LGG_model.rnn
-            self.fc = LGG_model.fc
-            self.sigmoid = LGG_model.sigmoid
+        else:  # phase 3 so we reuse the training from 2nd phase
+            self.rnn.load_state_dict(LGG_model.rnn.state_dict())
+            self.fc.load_state_dict(LGG_model.fc.state_dict())
 
+            self.out_weights.load_state_dict(LGG_model.out_weights.state_dict())
+            self.fcLGG.load_state_dict(LGG_model.fcLGG.state_dict())
 
         self.to(DEVICE)
 
@@ -327,8 +339,11 @@ class RNNLGGNet(LGGNet, nn.Module):
             h_0 = torch.zeros(self.rnn.num_layers, x.size(0), self.rnn.hidden_size, device=DEVICE)
 
         out = self.common_forward(x)
+        outLGG = self.fcLGG(out)
         out, h_0 = self.rnn(out.unsqueeze(1), h_0)
         out = self.fc(out[:, -1, :])
+
+        out = self.out_weights(torch.cat([out, outLGG], dim=1))
         out = self.sigmoid(out)
         return out.squeeze(1), h_0
 
