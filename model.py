@@ -325,6 +325,9 @@ class RNNLGGNet(LGGNet, nn.Module):
 
             self.fcLGG.load_state_dict(LGG_model.fc.state_dict())
 
+            for param in self.fcLGG.parameters():
+                param.requires_grad = False
+
         else:  # phase 3 so we reuse the training from 2nd phase
             self.rnn.load_state_dict(LGG_model.rnn.state_dict())
             self.fc.load_state_dict(LGG_model.fc.state_dict())
