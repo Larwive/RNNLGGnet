@@ -381,8 +381,8 @@ class CrossValidation:
             if not self.args.reproduce:
                 self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta,
                                              ttf, acc_test, f1)
-
-        self.final_print(tta, ttf, tva, tvf)
+        if not self.args.reproduce:
+            self.final_print(tta, ttf, tva, tvf)
 
     def subject_fold_cv_phase_2_3(self, subjects=None, phase: int = 2, rate: float = .2):
         """
@@ -530,8 +530,8 @@ class CrossValidation:
 
             if not self.args.reproduce:
                 self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta, ttf, acc_test, f1)
-
-        self.final_print(tta, ttf, tva, tvf)
+        if not self.args.reproduce:
+            self.final_print(tta, ttf, tva, tvf)
 
     @staticmethod
     def aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta, ttf, acc, f1):
