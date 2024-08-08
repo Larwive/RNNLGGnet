@@ -498,7 +498,7 @@ class CrossValidation:
                             counter = 0
                         else:
                             counter += 1
-                            if counter >= patient * 19:  # Number of subjects
+                            if counter >= patient * 19//5:  # Number of subjects
                                 print_cyan('[epoch {}] loss={:.4f} acc={:.4f} f1={:.4f}'
                                            .format(epoch, tl.item(), acc_train, f1_train))
                                 print_purple(

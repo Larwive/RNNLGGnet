@@ -29,12 +29,12 @@ if __name__ == '__main__':
     parser.add_argument('--random-seed', type=int, default=2021)
     parser.add_argument('--max-epoch', type=int, default=200)
     # Number of consecutive epochs without increase in accuracy of validation set before early stopping
-    parser.add_argument('--patient', type=int, default=10)
+    parser.add_argument('--patient', type=int, default=5)
     parser.add_argument('--max-epoch-cmb', type=int, default=20)
     parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--learning-rate', type=float, default=1e-3)
     parser.add_argument('--step-size', type=int, default=10)
-    parser.add_argument('--dropout', type=float, default=0.5)
+    parser.add_argument('--dropout', type=float, default=0.2)
 
     parser.add_argument('--save-path', default='./save/')
     parser.add_argument('--load-path', default='./save/max-acc_phase{}.pth')
@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--rnn-hidden-size', type=int, default=10)
     parser.add_argument('--rnn-num-layers', type=int, default=10)
-    parser.add_argument('--rnn-dropout', type=float, default=.5)
+    parser.add_argument('--rnn-dropout', type=float, default=.2)
     parser.add_argument('--start-phase', type=int, default=1)
     parser.add_argument('--end-phase', type=int, default=3)
     parser.add_argument('--phase-2-epochs', type=int, default=200)
