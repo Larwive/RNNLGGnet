@@ -376,7 +376,7 @@ class CrossValidation:
                               phase=1)
 
             acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
-                                    subject=sub)
+                                    subject=sub, phase=1)
             print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
             if not self.args.reproduce:
                 self.aggregate_compute_score(va_val, acc_val, vf_val, f1_val, tva, tvf, tta,
@@ -525,7 +525,7 @@ class CrossValidation:
                                                                        ', '.join([str(sub) for sub in excluded_subs]),
                                                                        sub))
             acc_test, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders,
-                                              reproduce=self.args.reproduce, subject=excluded_sub)
+                                              reproduce=self.args.reproduce, subject=excluded_sub, phase=phase)
             print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
 
             if not self.args.reproduce:
