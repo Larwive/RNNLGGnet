@@ -208,16 +208,10 @@ def test_phase_2_3(args, test_loaders, reproduce, subject, phase: int = 2):
     if phase == 1:
         model = get_model(args).to(device)
     else:
-        model = get_RNNLGG(args, subject, phase).to(device)
+        model = get_RNNLGG(args, excluded_subject=subject, phase=phase).to(device)
     loss_fn = nn.BCELoss()  # Consider nn.BCEWithLogitsLoss() ?
 
-    if reproduce:
-        model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
-        data_type = 'model'
-        experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
-        load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
-        model.load_state_dict(torch.load(load_path_final, weights_only=False))
-    else:
+    if not reproduce:
         model.load_state_dict(torch.load(args.load_path_final.format(phase), weights_only=False))
     loss, acc, f1, cm = predict_phase_2_3(data_loaders=test_loaders, net=model, loss_fn=loss_fn, require_cm=True)
     print('>>> Test:  loss={:.4f} acc={:.4f} f1={:.4f}'.format(loss, acc, f1))

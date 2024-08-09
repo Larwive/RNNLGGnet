@@ -137,6 +137,10 @@ def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2) -> RN
                       num_T=args.T, out_graph=args.hidden,
                       pool=args.pool, pool_step_rate=args.pool_step_rate,
                       idx_graph=idx_local_graph)
+    if args.reproduce and phase >= 2:
+        model_name_reproduce = 'sub{}_phase{}.pth'.format(excluded_subject, phase)
+        load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
+        model.load_state_dict(torch.load(load_path_final, weights_only=False))
     return model
 
 
