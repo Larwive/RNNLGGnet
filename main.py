@@ -17,6 +17,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Data ########
     parser.add_argument('--dataset', type=str, default='HOSP')
+    parser.add_argument('--label-type', type=str, default='park', choices=['rbd', 'park'])
     parser.add_argument('--data-path', type=str, default='./RBDdataPark/dat/')
     parser.add_argument('--subjects', type=int, default=19)
     parser.add_argument('--start-subject', type=int, default=0)
@@ -63,6 +64,9 @@ if __name__ == '__main__':
     # Reproduce the result using the saved model ######
     parser.add_argument('--reproduce', action='store_true')
     args = parser.parse_args()
+    if args.label_type == 'rbd':
+        args.data_path = './RBDdat/'
+        args.subjects = 39
     assert args.start_phase <= args.end_phase
 
     sub_to_run = np.arange(args.start_subject, args.start_subject + args.subjects)

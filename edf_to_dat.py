@@ -31,7 +31,7 @@ def distribute(count0, count1, dict_0, dict_1):
         count1, count0 = count0, count1
         dict_0, dict_1 = dict_1, dict_0
     rate = count0 // count1  # + 1  # Adjust if needed
-    while count1 > 0 and count0 > 0:
+    while count1 > 0 or count0 > 0:
         for _ in range(rate):
             if count0 > 0:
                 yield dict_0['subjects'].pop(), dict_0['labels'].pop(), dict_0['dates'].pop(), dict_0['dirpaths'].pop(), \
