@@ -27,6 +27,7 @@ class CrossValidation:
         self.data = None
         self.label = None
         self.model = None
+        self.subjects = args.subjects
         # Log the results per subject
         result_path = osp.join(args.save_path, 'result')
         ensure_path(result_path)
@@ -131,11 +132,10 @@ class CrossValidation:
             labels = labels[permutation]
         return datas, labels
 
-    def load_all_except_some(self, excluded_subs, max_subject: int = 19, shuffle: bool = False, verbose: bool = True):
+    def load_all_except_some(self, excluded_subs, shuffle: bool = False, verbose: bool = True):
         """
         Load data for all subjects except one.
         :param excluded_subs: The subject numbers to exclude from loading.
-        :param max_subject: The max subject number to load.
         :param shuffle: Whether to shuffle the data.
         :param verbose: Whether to print additional information.
         :return: Datas and labels of wanted subjects.
@@ -144,7 +144,7 @@ class CrossValidation:
         data_type = 'data_{}'.format(self.args.dataset)
         datas, labels = [], []
         len_0, len_1 = 0, 0
-        for sub in range(max_subject):
+        for sub in range(self.subjects):
             if sub in excluded_subs:
                 continue
             data, label = self.read_data(sub, save_path, data_type)
@@ -187,10 +187,9 @@ class CrossValidation:
 
         return self.reduce_data(datas, labels, shuffle)
 
-    def load_all(self, max_subject: int = 19, prepare_data=False, expand=False, verbose: bool = True, rate: float = 1.):
+    def load_all(self, prepare_data=False, expand=False, verbose: bool = True, rate: float = 1.):
         """
         Load all subjects' data.
-        :param max_subject: The max subject number to load.
         :param prepare_data: Whether to prepare the data.
         :param expand: Whether to expand data.
         :param verbose: Whether to print additional information.
@@ -201,7 +200,7 @@ class CrossValidation:
         datas, labels = [], []
         num_0, num_1 = 0, 0
         max_0, max_1 = 0, 0
-        for sub in range(max_subject):
+        for sub in range(self.subjects):
             data, label = self.read_data(sub, save_path, data_type)
             if prepare_data:
                 data, label = self.prepare_data_subject_fold(data, label)
@@ -498,7 +497,7 @@ class CrossValidation:
                             counter = 0
                         else:
                             counter += 1
-                            if counter >= patient * 19//5:  # Number of subjects
+                            if counter >= patient * self.subjects//5:  # Number of subjects
                                 print_cyan('[epoch {}] loss={:.4f} acc={:.4f} f1={:.4f}'
                                            .format(epoch, tl.item(), acc_train, f1_train))
                                 print_purple(

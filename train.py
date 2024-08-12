@@ -206,7 +206,7 @@ def test_phase_2_3(args, test_loaders, reproduce, subject, phase: int = 2):
     seed_all(args.random_seed)
 
     if phase == 1:
-        model = get_model(args).to(device)
+        model = get_LGG(args).to(device)
     else:
         model = get_RNNLGG(args, excluded_subject=subject, phase=phase).to(device)
     loss_fn = nn.BCELoss()  # Consider nn.BCEWithLogitsLoss() ?

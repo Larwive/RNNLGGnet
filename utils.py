@@ -98,7 +98,14 @@ def pprint(x):
     _utils_pp.pprint(x)
 
 
-def get_model(args) -> LGGNet:
+def get_model(args) -> nn.Module:
+    if args.model_type == 'resnet':
+        return get_resnet(args)
+    elif args.model_type == 'RNNLGGnet':
+        return get_LGG(args)
+
+
+def get_LGG(args) -> LGGNet:
     """
     Returns a blank LGGNet model.
     :param args:
@@ -127,7 +134,7 @@ def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2) -> RN
     load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
 
     if phase == 2:
-        previous_model = get_model(args)
+        previous_model = get_LGG(args)
         previous_model.load_state_dict(torch.load(load_path_final, weights_only=False))
     else:  # phase=3 here
         previous_model = get_RNNLGG(args, excluded_subject, fold, phase - 1)
@@ -141,6 +148,11 @@ def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2) -> RN
         model_name_reproduce = 'sub{}_phase{}.pth'.format(excluded_subject, phase)
         load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
         model.load_state_dict(torch.load(load_path_final, weights_only=False))
+    return model
+
+
+def get_resnet(args) -> ResNet:
+    model = ResNet()
     return model
 
 
@@ -181,8 +193,10 @@ def L2Loss(model, Lambda):
 def print_cyan(string):
     print("\033[0;36m{}\033[0m".format(string))
 
+
 def print_purple(string):
     print("\033[0;35m{}\033[0m".format(string))
+
 
 def print_red(string):
     print("\033[0;31m{}\033[0m".format(string))

@@ -27,6 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('--scale-coefficient', type=float, default=1)
     parser.add_argument('--input-shape', type=tuple, default=(1, 17, 512))
     # Training Process ########
+    parser.add_argument('--model-type', type=str, default='RNNLGGnet', choices=['RNNLGGnet', 'resnet'])
     parser.add_argument('--random-seed', type=int, default=2021)
     parser.add_argument('--max-epoch', type=int, default=200)
     # Number of consecutive epochs without increase in accuracy of validation set before early stopping
@@ -75,12 +76,16 @@ if __name__ == '__main__':
     cv = CrossValidation(args)
     seed_all(args.random_seed)
 
-    if args.start_phase <= 1 <= args.end_phase:
-        banner_print("Phase 1")
+    if args.model_type == 'RNNLGGnet':
+        if args.start_phase <= 1 <= args.end_phase:
+            banner_print("Phase 1")
+            cv.subject_fold_CV(subjects=sub_to_run, rand_state=args.kfold_rand_state)
+        if args.start_phase <= 2 <= args.end_phase:
+            banner_print("Phase 2")
+            cv.subject_fold_cv_phase_2_3(subjects=sub_to_run, phase=2)
+        if args.start_phase <= 3 <= args.end_phase:
+            banner_print("Phase 3")
+            cv.subject_fold_cv_phase_2_3(subjects=sub_to_run, phase=3)
+
+    elif args.model == 'resnet':
         cv.subject_fold_CV(subjects=sub_to_run, rand_state=args.kfold_rand_state)
-    if args.start_phase <= 2 <= args.end_phase:
-        banner_print("Phase 2")
-        cv.subject_fold_cv_phase_2_3(subjects=sub_to_run, phase=2)
-    if args.start_phase <= 3 <= args.end_phase:
-        banner_print("Phase 3")
-        cv.subject_fold_cv_phase_2_3(subjects=sub_to_run, phase=3)
