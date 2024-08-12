@@ -7,7 +7,11 @@ first = True
 excluded, inter, excluded_events, inter_events = [], [], [], []
 count = 0
 chann_dict = {}
-for dirpath, dirnames, filenames in os.walk('./RBDdata/'):
+
+walkpath = 'RBDdataPark/'
+walkpath = '2650142/DatabaseSubjects'
+
+for dirpath, dirnames, filenames in os.walk(walkpath):
     for filename in filenames:
         if filename.endswith(".edf"):
             count += 1

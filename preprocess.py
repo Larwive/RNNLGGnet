@@ -7,22 +7,49 @@ from mne.io import RawArray
 warnings.filterwarnings("ignore")
 
 
-def update_channels(raw: mne.io.BaseRaw, verbose: int = 1) -> mne.io.BaseRaw:
+def update_channels(raw: mne.io.BaseRaw, kept_channels= None, verbose: int = 1) -> mne.io.BaseRaw:
     channels_to_remove = {
         'Air cannula',
         'Air cannual',
         'Air Cannula',
         'EOG Left',
-        'EOG Right'
+        'EOG Right',
         'EEG T3-A2',
-        'EEG T4-A1'
-        'EEG A1-A2'
+        'EEG T4-A1',
+        'EEG A1-A2',
+
+        'EOG1-A2',
+        'EOG2-A2',
+        'EOG1',
+        'EOG2',
+        'FP1-A2',
+        'CZ-A1',
+        'EMG1',
+        'VTH',
+        'VAB',
+        'NAF2P-A1',
+        'NAF1',
+        'PHONO',
+        'PR',
+        'SAO2',
+        'PCPAP',
+        'POS',
+        'FP2-A1',
+        'CZ2-A1',
+        'EMG2',
+        'PULSE',
+        'EMG3',
+        'VTOT'
     }
 
     renames = {
         'Snore': 'Snoring Snore',
-        'EEG EKG-Ref': 'ECG EKG'
-                       'Leg LEMG2'
+        'EEG EKG-Ref': 'ECG EKG',
+
+        'ECG': 'ECG EKG',
+        'O1-A2': 'EEG O1-A2',
+        'O2-A1': 'EEG O2-A1',
+
     }
 
     if len(channels_to_remove - set(raw.ch_names)) < len(channels_to_remove):
@@ -37,6 +64,9 @@ def update_channels(raw: mne.io.BaseRaw, verbose: int = 1) -> mne.io.BaseRaw:
         if verbose > 0:
             print(raw.ch_names)
         raw = raw.rename_channels(sub_renames, verbose=verbose)
+
+    if kept_channels is not None:
+        raw = raw.pick(kept_channels, verbose=verbose)
     return raw
 
 
@@ -84,8 +114,8 @@ def normalize(raw: mne.io.BaseRaw) -> RawArray:
     return mne.io.RawArray(normalized_data, raw.info, verbose=0)
 
 
-def preprocess_raw(raw: mne.io.BaseRaw) -> mne.io.BaseRaw:
-    raw = update_channels(raw, verbose=0)
+def preprocess_raw(raw: mne.io.BaseRaw, kept_channels= None) -> mne.io.BaseRaw:
+    raw = update_channels(raw, kept_channels=kept_channels, verbose=0)
     raw.filter(l_freq=0.5, h_freq=50, verbose=0)
     # raw = remove_muscle_artifacts(raw)
 
@@ -95,7 +125,7 @@ def preprocess_raw(raw: mne.io.BaseRaw) -> mne.io.BaseRaw:
 
 
 if __name__ == '__main__':
-    for dirpath, dirnames, filenames in os.walk('./RBDdata/'):
+    for dirpath, dirnames, filenames in os.walk('RBDdataPark/'):
         for filename in filenames:
             if filename.endswith(".fif"):
                 pass

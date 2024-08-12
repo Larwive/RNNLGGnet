@@ -17,7 +17,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Data ########
     parser.add_argument('--dataset', type=str, default='HOSP')
-    parser.add_argument('--data-path', type=str, default='./RBDdata/dat/')
+    parser.add_argument('--data-path', type=str, default='./RBDdataPark/dat/')
     parser.add_argument('--subjects', type=int, default=19)
     parser.add_argument('--start-subject', type=int, default=0)
     parser.add_argument('--segment', type=int, default=4)  # Length in second

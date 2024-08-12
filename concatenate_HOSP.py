@@ -7,7 +7,7 @@ import mne
 import os
 from preprocess import preprocess_raw
 
-data_path = './RBDdata/'
+data_path = 'RBDdataPark/'
 
 to_concat = [
     ['0/07273610/2011-10-24.edf',
