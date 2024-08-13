@@ -68,6 +68,9 @@ if __name__ == '__main__':
     if args.label_type == 'rbd':
         args.data_path = './RBDdat/'
         args.subjects = 39
+    if args.model_type == 'resnet':
+        args.load_path = './save/max-acc.pth'
+        args.load_path_final = './save/final_model.pth'
     assert args.start_phase <= args.end_phase
 
     sub_to_run = np.arange(args.start_subject, args.start_subject + args.subjects)
@@ -87,5 +90,5 @@ if __name__ == '__main__':
             banner_print("Phase 3")
             cv.subject_fold_cv_phase_2_3(subjects=sub_to_run, phase=3)
 
-    elif args.model == 'resnet':
+    elif args.model_type == 'resnet':
         cv.subject_fold_CV(subjects=sub_to_run, rand_state=args.kfold_rand_state)

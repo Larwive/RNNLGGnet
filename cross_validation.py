@@ -421,7 +421,7 @@ class CrossValidation:
 
                 model = get_RNNLGG(self.args, excluded_sub, phase=phase)
                 lr = 0.001
-                if phase ==2:
+                if phase == 2:
                     lr *= 2
                 optimizer = optim.Adam(model.parameters(), lr=lr)
                 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.args.step_size, gamma=self.args.gamma)
@@ -497,7 +497,7 @@ class CrossValidation:
                             counter = 0
                         else:
                             counter += 1
-                            if counter >= patient * self.subjects//5:  # Number of subjects
+                            if counter >= patient * self.subjects // 5:
                                 print_cyan('[epoch {}] loss={:.4f} acc={:.4f} f1={:.4f}'
                                            .format(epoch, tl.item(), acc_train, f1_train))
                                 print_purple(
@@ -597,8 +597,12 @@ class CrossValidation:
             if acc_val >= maxAcc:
                 maxAcc = acc_val
                 # choose the model with higher val acc as the model to second stage
-                old_name = osp.join(self.args.save_path, 'candidate_phase{}.pth'.format(phase))
-                new_name = osp.join(self.args.save_path, 'max-acc_phase{}.pth'.format(phase))
+                if self.args.model_type == 'RNNLGGnet':
+                    old_name = osp.join(self.args.save_path, 'candidate_phase{}.pth'.format(phase))
+                    new_name = osp.join(self.args.save_path, 'max-acc_phase{}.pth'.format(phase))
+                elif self.args.model_type == 'resnet':
+                    old_name = osp.join(self.args.save_path, 'candidate.pth')
+                    new_name = osp.join(self.args.save_path, 'max-acc.pth')
                 if os.path.exists(new_name):
                     os.remove(new_name)
                 os.rename(old_name, new_name)

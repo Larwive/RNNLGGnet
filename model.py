@@ -389,7 +389,7 @@ class ResidualBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block=ResidualBlock, layers=None, num_classes=10):
+    def __init__(self, block=ResidualBlock, layers=None, num_classes=1):
         super(ResNet, self).__init__()
         if layers is None:
             layers = [3, 4, 6, 3]
@@ -405,6 +405,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AdaptiveAvgPool1d(1)
         self.fc = nn.Linear(512 * 4, num_classes)  # 512 * 4 due to the bottleneck expansion
+        self.sigmoid = nn.Sigmoid()
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
@@ -421,6 +422,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        x = x.squeeze(1)
         x = self.conv1(x)
         x = self.maxpool(x)
         x = self.layer0(x)
@@ -431,5 +433,6 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
-
+        x = self.sigmoid(x)
+        x = x.view(-1)
         return x

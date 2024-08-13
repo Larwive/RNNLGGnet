@@ -93,10 +93,13 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
     loss_fn = nn.BCELoss()
 
     def save_model(name):
-        previous_model = osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase))
+        if args.model_type == 'RNNLGGnet':
+            previous_model = osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase))
+        elif args.model_type == 'resnet':
+            previous_model = osp.join(args.save_path, '{}.pth'.format(name))
         if os.path.exists(previous_model):
             os.remove(previous_model)
-        torch.save(model.state_dict(), osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase)))
+        torch.save(model.state_dict(), previous_model)
 
     trlog = {'args': vars(args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'max_acc': 0.0,
              'F1': 0.0}
@@ -189,7 +192,10 @@ def test(args, data, label, reproduce, subject, phase: int = 1):
     loss_fn = nn.BCELoss()  # Consider nn.BCEWithLogitsLoss() ?
 
     if reproduce:
-        model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
+        if args.model_type == 'RNNLGGnet':
+            model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
+        elif args.model_type == 'resnet':
+            model_name_reproduce = 'sub{}.pth'.format(subject)
         data_type = 'model'
         experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
         load_path_final = osp.join(args.save_path, experiment_setting, data_type, model_name_reproduce)
@@ -234,10 +240,13 @@ def combine_train(args, data, label, subject, fold, target_acc, phase: int):
     loss_fn = nn.CrossEntropyLoss()
 
     def save_model(name):
-        previous_model = osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase))
+        if args.model_type == 'RNNLGGnet':
+            previous_model = osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase))
+        elif args.model_type == 'resnet':
+            previous_model = osp.join(args.save_path, '{}.pth'.format(name))
         if os.path.exists(previous_model):
             os.remove(previous_model)
-        torch.save(model.state_dict(), osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase)))
+        torch.save(model.state_dict(), previous_model)
 
     trlog = {'args': vars(args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'max_acc': 0.0}
 
@@ -255,7 +264,10 @@ def combine_train(args, data, label, subject, fold, target_acc, phase: int):
             print_red('Early stopping!')
             save_model('final_model')
             # save model here for reproduce
-            model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
+            if args.model_type == 'RNNLGGnet':
+                model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
+            elif args.model_type == 'resnet':
+                model_name_reproduce = 'sub{}.pth'.format(subject)
             data_type = 'model'
             experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
             save_path = osp.join(args.save_path, experiment_setting, data_type)
