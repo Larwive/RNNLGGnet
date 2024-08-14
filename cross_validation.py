@@ -29,10 +29,10 @@ class CrossValidation:
         self.model = None
         self.subjects = args.subjects
         # Log the results per subject
-        result_path = osp.join(args.save_path, 'result')
-        ensure_path(result_path)
-        self.text_file = osp.join(result_path,
-                                  "results_{}.txt".format(args.dataset))
+        #result_path = osp.join(args.save_path, 'result')
+        #ensure_path(result_path)
+        #self.text_file = osp.join(result_path,
+        #                          "results_{}.txt".format(args.dataset))
         """with open(self.text_file, 'a') as file:
             file.write("\n" + str(datetime.datetime.now()) +
                        "\nTrain:Parameter setting for " + str(args.model) + ' on ' + str(args.dataset) +
@@ -617,5 +617,5 @@ class CrossValidation:
         this function log the content to results.txt
         :param content: string, the content to log
         """
-        with open(self.text_file, 'a') as file:
-            file.write(str(content) + '\n')
+        #with open(self.text_file, 'a') as file:
+        #    file.write(str(content) + '\n')

@@ -152,7 +152,7 @@ def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2) -> RN
 
 
 def get_resnet(args) -> ResNet:
-    model = ResNet()
+    model = ResNet(args.input_shape[1])
     return model
 
 

@@ -389,13 +389,13 @@ class ResidualBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block=ResidualBlock, layers=None, num_classes=1):
+    def __init__(self, input_channels:int, block=ResidualBlock, layers=None, num_classes=1):
         super(ResNet, self).__init__()
         if layers is None:
             layers = [3, 4, 6, 3]
         self.input_planes = 64
         self.conv1 = nn.Sequential(
-            nn.Conv1d(3, 64, kernel_size=7, stride=2, padding=3),
+            nn.Conv1d(input_channels, 64, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm1d(64),
             nn.ReLU())
         self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
