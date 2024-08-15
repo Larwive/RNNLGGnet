@@ -225,12 +225,13 @@ def test_phase_2_3(args, test_loaders, reproduce, subject, phase: int = 2):
     return acc, f1, cm
 
 
-def combine_train(args, data, label, subject, fold, target_acc, phase: int):
+def combine_train(args, data, label, data_val, label_val, subject, fold, target_acc, phase: int):
     save_name = '_sub{}'.format(subject)
     set_up(args)
     seed_all(args.random_seed)
 
     train_loader = get_dataloader(data, label, args.batch_size)
+    val_loader = get_dataloader(data_val, label_val, args.batch_size)
     model = get_model(args).to(device)
     model.load_state_dict(torch.load(args.load_path.format(phase), weights_only=False))
 
@@ -251,17 +252,22 @@ def combine_train(args, data, label, subject, fold, target_acc, phase: int):
     trlog = {'args': vars(args), 'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': [], 'max_acc': 0.0}
 
     timer = Timer()
+    counter = 0
 
     for epoch in range(1, args.max_epoch_cmb + 1):
         loss, pred, act = train_one_epoch(
             data_loader=train_loader, net=model, loss_fn=loss_fn, optimizer=optimizer, scheduler=scheduler
         )
         acc, f1 = get_metrics(y_pred=pred, y_true=act, get_cm=False)
+        _, acc_val, f1_val = predict(data_loader=val_loader, net=model, loss_fn=loss_fn)
         print('Stage 2 : epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
               .format(epoch, loss, acc, f1))
+        print('Stage 2 val: epoch {}, loss={:.4f} acc={:.4f} f1={:.4f}'
+              .format(epoch, loss, acc_val, f1_val))
 
-        if acc >= target_acc or np.isclose(acc, target_acc) or epoch == args.max_epoch_cmb:
-            print_red('Early stopping!')
+        if acc_val > trlog['max_acc'] and not np.isclose(acc_val, 1.) or epoch == args.max_epoch_cmb:
+            trlog['max_acc'], trlog['F1'] = acc_val, f1_val
+
             save_model('final_model')
             # save model here for reproduce
             if args.model_type == 'RNNLGGnet':
@@ -274,7 +280,11 @@ def combine_train(args, data, label, subject, fold, target_acc, phase: int):
             ensure_path(save_path)
             model_name_reproduce = osp.join(save_path, model_name_reproduce)
             torch.save(model.state_dict(), model_name_reproduce)
-            break
+        else:
+            counter += 1
+            if counter >= args.patient:
+                print_red('Early stopping!')
+                break
 
         trlog['train_loss'].append(loss)
         trlog['train_acc'].append(acc)

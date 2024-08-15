@@ -29,9 +29,9 @@ class CrossValidation:
         self.model = None
         self.subjects = args.subjects
         # Log the results per subject
-        #result_path = osp.join(args.save_path, 'result')
-        #ensure_path(result_path)
-        #self.text_file = osp.join(result_path,
+        # result_path = osp.join(args.save_path, 'result')
+        # ensure_path(result_path)
+        # self.text_file = osp.join(result_path,
         #                          "results_{}.txt".format(args.dataset))
         """with open(self.text_file, 'a') as file:
             file.write("\n" + str(datetime.datetime.now()) +
@@ -371,8 +371,8 @@ class CrossValidation:
                 acc_val, f1_val = self.first_stage(data=data_train, label=label_train, subject=sub, fold=0,
                                                    rand_state=rand_state, phase=1)
 
-                combine_train(args=self.args, data=data_train, label=label_train, subject=sub, fold=0, target_acc=1,
-                              phase=1)
+                combine_train(args=self.args, data=data_train, label=label_train, data_val=data_test,
+                              label_val=label_test, subject=sub, fold=0, target_acc=1, phase=1)
 
             acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
                                     subject=sub, phase=1)
@@ -617,5 +617,43 @@ class CrossValidation:
         this function log the content to results.txt
         :param content: string, the content to log
         """
-        #with open(self.text_file, 'a') as file:
+        # with open(self.text_file, 'a') as file:
         #    file.write(str(content) + '\n')
+
+    def compare(self, subjects=None, data_test=None, label_test=None, rate: float = .2):
+        """
+        this function achieves n-fold cross-validation
+        :param subjects: how many subject to load
+        :param data_test: (segments, 1, channel, data)
+        :param label_test: (segments,)
+        :param rate: how much to split the data
+        """
+        # Train and evaluate the model subject by subject
+
+        if subjects is None:
+            subjects = []
+        tta = []  # total test accuracy
+        ttf = []  # total test f1
+
+        accuracies = []
+
+        for excluded_subs in subject_fold(subjects, rate):
+            sub = excluded_subs[0]
+            data_test, label_test = self.load_subjects(excluded_subs, verbose=not self.args.reproduce)
+            print('Subject fold: {} excluded'.format(', '.join([str(sub) for sub in excluded_subs])))
+            data_test, label_test = self.prepare_data_subject_fold(data_test, label_test)
+
+            data_test = np.expand_dims(data_test, axis=1)
+
+            acc, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
+                               subject=sub, phase=1)
+            print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
+
+            tta.append(acc)
+            ttf.append(f1)
+
+        # prepare final report
+        mACC = np.mean(tta)
+        std = np.std(tta)
+
+        return mACC, std, accuracies, data_test, label_test

@@ -43,7 +43,8 @@ class PrepareData:
 
         self.graph_type = args.graph_type
 
-    def run(self, subject_list, split: bool = False, expand: bool = True) -> None:
+    def run(self, subject_list, split: bool = False, expand: bool = True, forced_graph=None,
+            verbose: float = True) -> None:
         """
         The processed data will be saved './data_<dataset>/sub0.hdf'
         :param subject_list: the subjects that need to be processed
@@ -52,7 +53,7 @@ class PrepareData:
         :return: None
         """
         for sub in subject_list:
-            data_, label_ = self.load_data_per_subject(sub)
+            data_, label_ = self.load_data_per_subject(sub, forced_graph, verbose=verbose)
             # select label type here
             label_ = self.label_selection(label_)
 
@@ -63,13 +64,13 @@ class PrepareData:
             if split:
                 data_, label_ = self.split(
                     data=data_, label=label_, segment_length=self.args.segment,
-                    overlap=self.args.overlap, sampling_rate=self.args.sampling_rate)
-
-            print(
-                'Data and label prepared!\ndata:{} label:{}\n----------------------'.format(data_.shape, label_.shape))
+                    overlap=self.args.overlap, sampling_rate=self.args.sampling_rate, verbose=verbose)
+            if verbose:
+                print('Data and label prepared!\ndata:{} label:{}\n----------------------'.format(data_.shape,
+                                                                                                  label_.shape))
             self.save(data_, label_, sub)
 
-    def load_data_per_subject(self, sub: int) -> tuple[np.ndarray, np.ndarray]:
+    def load_data_per_subject(self, sub: int, forced_graph=None, verbose:float = True) -> tuple[np.ndarray, np.ndarray]:
         """
         This function loads the target subject's original file
         :param sub: which subject to load
@@ -91,18 +92,21 @@ class PrepareData:
         #   data: ?? x ?? x ????
         #   label: ?? x ?
         # reorder the EEG channel to build the local-global graphs
-        data = self.reorder_channel(data=data, graph=self.graph_type)
-        print('data:{} label:{}'.format(data.shape, label.shape))
+        data = self.reorder_channel(data=data, graph=self.graph_type, forced_graph=forced_graph)
+        if verbose:
+            print('data:{} label:{}'.format(data.shape, label.shape))
         return data, label
 
-    def reorder_channel(self, data: np.ndarray, graph: str) -> np.ndarray:
+    def reorder_channel(self, data: np.ndarray, graph: str, forced_graph=None) -> np.ndarray:
         """
         This function reorder the channel according to different graph designs
         :param data: (trial, channel, data)
         :param graph: graph type
         :return: reordered data: (trial, channel, data)
         """
-        if graph == 'fro':
+        if forced_graph is not None:
+            graph_idx = forced_graph
+        elif graph == 'fro':
             graph_idx = self.graph_fro
         elif graph == 'gen':
             graph_idx = self.graph_gen
@@ -163,8 +167,8 @@ class PrepareData:
         dataset.close()
 
     @staticmethod
-    def split(data: np.ndarray, label, segment_length: float = 1, overlap: float = 0, sampling_rate: int = 256) -> \
-            tuple[np.ndarray, np.ndarray]:
+    def split(data: np.ndarray, label, segment_length: float = 1, overlap: float = 0, sampling_rate: int = 256,
+              verbose: float = True) -> tuple[np.ndarray, np.ndarray]:
         """
         This function split one trial's data into shorter segments
         :param data: (trial, f, channel, data)
@@ -185,7 +189,8 @@ class PrepareData:
             data_split.append(data[:, :, (i * step):(i * step + data_segment)])
         data_split_array = np.stack(data_split, axis=1)
         label = np.stack([np.repeat(label, int(number_segment + 1))], axis=0)
-        print("The data and label are split: Data shape:{} Label:{}".format(data_split_array.shape, label.shape))
+        if verbose:
+            print("The data and label are split: Data shape:{} Label:{}".format(data_split_array.shape, label.shape))
         data = data_split_array
         assert len(data) == len(label)
         return data, label
