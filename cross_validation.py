@@ -368,7 +368,8 @@ class CrossValidation:
             f1_val = 0
             if not self.args.reproduce:
                 # to train new models
-                acc_val, f1_val = self.first_stage(data=data_train, label=label_train, subject=sub, fold=0,
+                acc_val, f1_val = self.first_stage(data=data_train, label=label_train, data_val=data_test,
+                                                   label_val=label_test, subject=sub, fold=0,
                                                    rand_state=rand_state, phase=1)
 
                 combine_train(args=self.args, data=data_train, label=label_train, data_val=data_test,
@@ -559,7 +560,7 @@ class CrossValidation:
             print('Final: val mean ACC:{} std:{}'.format(mACC_val, std_val))
             print('Final: val mean F1:{}'.format(mF1_val))
 
-    def first_stage(self, data, label, subject, fold, rand_state=None, phase: int = 1):
+    def first_stage(self, data, label, data_val, label_val, subject, fold, rand_state=None, phase: int = 1):
         """
         this function achieves n-fold-CV to:
             1. select hyperparameters on training data
@@ -582,7 +583,9 @@ class CrossValidation:
         for i, (idx_train, idx_val) in enumerate(kf.split(data)):
             print('Inner 3-fold-CV Fold:{}'.format(i))
             data_train, label_train = data[idx_train], label[idx_train]
-            data_val, label_val = data[idx_val], label[idx_val]
+            # Validation set now outside from the train subjects to avoid overfitting
+            # data_val, label_val = data[idx_val], label[idx_val]
+
             acc_val, F1_val = train(args=self.args,
                                     data_train=data_train,
                                     label_train=label_train,
