@@ -6,8 +6,10 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+
 def print_line():
     print('*' * os.get_terminal_size().columns)
+
 
 parser = argparse.ArgumentParser()
 # Data ########
@@ -77,8 +79,11 @@ model_pathss = [[
     './save_overlap50_gen/',
     './save_overlap50_hem/',
     './save_overlap50_EEG_fro/',
+    './save_overlap50_EEG_fro2/',
     './save_overlap50_EEG_gen/',
+    './save_overlap50_EEG_gen2/',
     './save_overlap50_EEG_hem/',
+    './save_overlap50_EEG_hem2/',
     './save_overlap50_EMG_fro/',
     './save_overlap50_EMG_gen/',
     './save_overlap50_oth_fro/',
@@ -147,8 +152,14 @@ channels_lists = [[
 
     [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
      ['EEG LOC-A2', 'EEG ROC-A1']],
+    [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
+     ['EEG LOC-A2', 'EEG ROC-A1']],
     [['EEG F3-A2', 'EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
      ['EEG LOC-A2', 'EEG ROC-A1']],
+    [['EEG F3-A2', 'EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
+     ['EEG LOC-A2', 'EEG ROC-A1']],
+    [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2'], ['EEG C4-A1'], ['EEG O1-A2'], ['EEG O2-A1'],
+     ['EEG LOC-A2'], ['EEG ROC-A1']],
     [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2'], ['EEG C4-A1'], ['EEG O1-A2'], ['EEG O2-A1'],
      ['EEG LOC-A2'], ['EEG ROC-A1']],
 
@@ -159,8 +170,8 @@ channels_lists = [[
     [['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']],
 ], [
     [['EEG F3-A2', 'EEG F4-A1', 'EEG C3-A2', 'EEG C4-A1', 'EEG O1-A2', 'EEG O2-A1',
-     'EEG LOC-A2', 'EEG ROC-A1', 'EMG Chin', 'ECG EKG', 'EMG Left_Leg', 'EMG Right_Leg',
-     'Snoring Snore', 'Airflow', 'Resp Thorax', 'Resp Abdomen', 'Manual']]
+      'EEG LOC-A2', 'EEG ROC-A1', 'EMG Chin', 'ECG EKG', 'EMG Left_Leg', 'EMG Right_Leg',
+      'Snoring Snore', 'Airflow', 'Resp Thorax', 'Resp Abdomen', 'Manual']]
 ], [
     [['EEG O1-A2', 'EEG O2-A1'], ['ECG EKG']],
     [['EEG O1-A2'], ['EEG O2-A1'], ['ECG EKG']]
@@ -174,14 +185,15 @@ plots = [0, 1, 2, 3]
 plotting = -1
 
 data_test, label_test = None, None
-for model_paths, input_shapes, labels, channels_lists, train_label, sub_to_run, xlabel, data_path, label_type, model_type in zip(model_pathss,
-                                                                                                         input_shapess,
-                                                                                                         labelss,
-                                                                                                         channels_lists,
-                                                                                                         train_labels,
-                                                                                                         sub_to_runs,
-                                                                                                         xlabels,
-                                                                                                         data_paths, label_types, model_types):
+for model_paths, input_shapes, labels, channels_lists, train_label, sub_to_run, xlabel, data_path, label_type, model_type in zip(
+        model_pathss,
+        input_shapess,
+        labelss,
+        channels_lists,
+        train_labels,
+        sub_to_runs,
+        xlabels,
+        data_paths, label_types, model_types):
     args.data_path = data_path
     args.subjects = sub_to_run
     args.label_type = label_type

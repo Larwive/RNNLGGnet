@@ -373,7 +373,7 @@ class CrossValidation:
                                                    rand_state=rand_state, phase=1)
 
                 combine_train(args=self.args, data=data_train, label=label_train, data_val=data_test,
-                              label_val=label_test, subject=sub, fold=0, target_acc=1, phase=1)
+                              label_val=label_test, subject=sub, fold=0, phase=1)
 
             acc_test, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
                                     subject=sub, phase=1)
