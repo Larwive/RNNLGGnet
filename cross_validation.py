@@ -156,7 +156,6 @@ class CrossValidation:
                 len_1 += data.shape[1]
             if verbose:
                 print('>>> Data:{} Label:{}'.format(datas[-1].shape, labels[-1].shape))
-
         self.augment_data(datas, labels, len_0, len_1)
         return self.reduce_data(datas, labels, shuffle)
 
@@ -193,6 +192,7 @@ class CrossValidation:
         :param prepare_data: Whether to prepare the data.
         :param expand: Whether to expand data.
         :param verbose: Whether to print additional information.
+        :param rate: See 'CrossValidation.augment_data_global'
         :return: Datas and labels of all subjects.
         """
         save_path = os.getcwd()
@@ -567,6 +567,8 @@ class CrossValidation:
             2. get the model for evaluation on testing data
         :param data: (segments, 1, channel, data)
         :param label: (segments,)
+        :param data_val: Data used for validation
+        :param label_val: Label associated to validation data
         :param subject: which subject the data belongs to
         :param fold: which fold the data belongs to
         :param rand_state: See sklearn.model_selection._split.KFold
@@ -603,7 +605,7 @@ class CrossValidation:
                 if self.args.model_type == 'RNNLGGnet':
                     old_name = osp.join(self.args.save_path, 'candidate_phase{}.pth'.format(phase))
                     new_name = osp.join(self.args.save_path, 'max-acc_phase{}.pth'.format(phase))
-                elif self.args.model_type == 'resnet':
+                else: #elif self.args.model_type == 'resnet':
                     old_name = osp.join(self.args.save_path, 'candidate.pth')
                     new_name = osp.join(self.args.save_path, 'max-acc.pth')
                 if os.path.exists(new_name):

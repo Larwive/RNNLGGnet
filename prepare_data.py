@@ -50,6 +50,8 @@ class PrepareData:
         :param subject_list: the subjects that need to be processed
         :param split: whether to split one trial's data into shorter segment
         :param expand: whether to add an empty dimension for CNN
+        :param forced_graph: to be used to force a graph, useful when comparing multiple trained models
+        :param verbose: whether to have additional prints
         :return: None
         """
         for sub in subject_list:
@@ -70,10 +72,13 @@ class PrepareData:
                                                                                                   label_.shape))
             self.save(data_, label_, sub)
 
-    def load_data_per_subject(self, sub: int, forced_graph=None, verbose:float = True) -> tuple[np.ndarray, np.ndarray]:
+    def load_data_per_subject(self, sub: int, forced_graph=None, verbose: float = True) -> tuple[
+        np.ndarray, np.ndarray]:
         """
         This function loads the target subject's original file
         :param sub: which subject to load
+        :param forced_graph: to be used to force a graph, useful when comparing multiple trained models
+        :param verbose: whether to have additional prints
         :return: data: (??, ??, ????) label: (??, ?)
         """
         sub += 1
@@ -102,6 +107,7 @@ class PrepareData:
         This function reorder the channel according to different graph designs
         :param data: (trial, channel, data)
         :param graph: graph type
+        :param forced_graph: to be used to force a graph, useful when comparing multiple trained models
         :return: reordered data: (trial, channel, data)
         """
         if forced_graph is not None:
@@ -176,6 +182,7 @@ class PrepareData:
         :param segment_length: how long each segment is in seconds
         :param overlap: overlap rate
         :param sampling_rate: sampling rate
+        :param verbose: whether to have additional prints
         :return: data: (trial, num_segment, f, channel, segment_length)
         label: (trial, num_segment,)
         """

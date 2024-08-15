@@ -95,7 +95,7 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
     def save_model(name):
         if args.model_type == 'RNNLGGnet':
             previous_model = osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase))
-        elif args.model_type == 'resnet':
+        else:  #elif args.model_type == 'resnet':
             previous_model = osp.join(args.save_path, '{}.pth'.format(name))
         if os.path.exists(previous_model):
             os.remove(previous_model)
@@ -194,7 +194,7 @@ def test(args, data, label, reproduce, subject, phase: int = 1):
     if reproduce:
         if args.model_type == 'RNNLGGnet':
             model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
-        elif args.model_type == 'resnet':
+        else: #elif args.model_type == 'resnet':
             model_name_reproduce = 'sub{}.pth'.format(subject)
         data_type = 'model'
         experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
@@ -225,7 +225,7 @@ def test_phase_2_3(args, test_loaders, reproduce, subject, phase: int = 2):
     return acc, f1, cm
 
 
-def combine_train(args, data, label, data_val, label_val, subject, fold, target_acc, phase: int):
+def combine_train(args, data, label, data_val, label_val, subject, fold, phase: int):
     save_name = '_sub{}'.format(subject)
     set_up(args)
     seed_all(args.random_seed)
@@ -243,7 +243,7 @@ def combine_train(args, data, label, data_val, label_val, subject, fold, target_
     def save_model(name):
         if args.model_type == 'RNNLGGnet':
             previous_model = osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase))
-        elif args.model_type == 'resnet':
+        else: #elif args.model_type == 'resnet':
             previous_model = osp.join(args.save_path, '{}.pth'.format(name))
         if os.path.exists(previous_model):
             os.remove(previous_model)
@@ -272,7 +272,7 @@ def combine_train(args, data, label, data_val, label_val, subject, fold, target_
             # save model here for reproduce
             if args.model_type == 'RNNLGGnet':
                 model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
-            elif args.model_type == 'resnet':
+            else: #elif args.model_type == 'resnet':
                 model_name_reproduce = 'sub{}.pth'.format(subject)
             data_type = 'model'
             experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
