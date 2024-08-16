@@ -76,8 +76,11 @@ data_paths = ['./RBDdataPark/dat/', './RBDdataPark/dat/', './RBDdat/', './RBDdat
 model_types = ['RNNLGGnet', 'resnet', 'RNNLGGnet', 'resnet']
 model_pathss = [[
     './save_overlap50_fro/',
+    './save_overlap50_fro2/',
     './save_overlap50_gen/',
+    './save_overlap50_gen2/',
     './save_overlap50_hem/',
+    './save_overlap50_hem2/',
     './save_overlap50_EEG_fro/',
     './save_overlap50_EEG_fro2/',
     './save_overlap50_EEG_gen/',
@@ -101,6 +104,12 @@ input_shapess = [[
     (1, 17, 512),
     (1, 17, 512),
     (1, 17, 512),
+    (1, 17, 512),
+    (1, 17, 512),
+    (1, 17, 512),
+    (1, 8, 512),
+    (1, 8, 512),
+    (1, 8, 512),
     (1, 8, 512),
     (1, 8, 512),
     (1, 8, 512),
@@ -119,11 +128,17 @@ input_shapess = [[
 
 labelss = [[
     "All channels, fro graph",
+    "All channels, fro graph 2",
     "All channels, gen graph",
+    "All channels, gen graph 2",
     "All channels, hem graph",
+    "All channels, hem graph 2",
     "EEG channels, fro graph",
+    "EEG channels, fro graph 2",
     "EEG channels, gen graph",
+    "EEG channels, gen graph2",
     "EEG channels, hem graph",
+    "EEG channels, hem graph2",
     "EMG channels, fro graph",
     "EMG channels, gen graph",
     "Oth channels, fro graph",
@@ -143,9 +158,18 @@ channels_lists = [[
     [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
      ['EEG LOC-A2', 'EEG ROC-A1'], ['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin'],
      ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']],
+    [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
+     ['EEG LOC-A2', 'EEG ROC-A1'], ['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin'],
+     ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']],
     [['EEG F3-A2', 'EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
      ['EEG LOC-A2', 'EEG ROC-A1'], ['EMG Left_Leg', 'EMG Right_Leg'], ['EMG Chin'],
      ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']],
+    [['EEG F3-A2', 'EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
+     ['EEG LOC-A2', 'EEG ROC-A1'], ['EMG Left_Leg', 'EMG Right_Leg'], ['EMG Chin'],
+     ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']],
+    [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2'], ['EEG C4-A1'], ['EEG O1-A2'], ['EEG O2-A1'],
+     ['EEG LOC-A2'], ['EEG ROC-A1'], ['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin'],
+     ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']],
     [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2'], ['EEG C4-A1'], ['EEG O1-A2'], ['EEG O2-A1'],
      ['EEG LOC-A2'], ['EEG ROC-A1'], ['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin'],
      ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']],
@@ -203,27 +227,33 @@ for model_paths, input_shapes, labels, channels_lists, train_label, sub_to_run, 
         continue
     accuracies, stds = [], []
     for model_path, input_shape, label, channels in zip(model_paths, input_shapes, labels, channels_lists):
-        accuracies_sub = []
-        args.save_path = model_path
-        args.input_shape = input_shape
-        pd = PrepareData(args)
-        pd.run(sub_to_run, split=True, expand=True, forced_graph=channels, verbose=False)
+        if model_type == 'RNNLGGnet':
+            max_phase = 3
+        else:  # resnet
+            max_phase = 1
+        for phase in range(max_phase):
+            accuracies_sub = []
+            args.save_path = model_path
+            args.input_shape = input_shape
+            pd = PrepareData(args)
+            pd.run(sub_to_run, split=True, expand=True, forced_graph=channels, verbose=False)
 
-        cv = CrossValidation(args)
-        seed_all(args.random_seed)
+            cv = CrossValidation(args)
+            seed_all(args.random_seed)
 
-        acc, std, accs, data_test, label_test = cv.compare(subjects=sub_to_run,
-                                                           data_test=data_test,
-                                                           label_test=label_test)
-        plt.figure(fign)
-        plt.bar(np.arange(len(accs)), accs, label=label)
-        for i in sub_to_run:
-            accuracies_sub.append(np.array(accs[i * 10:(i + 1) * 10]).mean())
-        plt.figure(fign + 1)
-        plt.bar(np.arange(len(accuracies_sub)), accuracies_sub, label=label)
-        accuracies.append(acc)
-        stds.append(std)
-        data_test, label_test = None, None
+            acc, std, accs, data_test, label_test = cv.compare(subjects=sub_to_run,
+                                                               data_test=data_test,
+                                                               label_test=label_test,
+                                                               phase=phase)
+            plt.figure(fign)
+            plt.bar(np.arange(len(accs)), accs, label=label)
+            for i in sub_to_run:
+                accuracies_sub.append(np.array(accs[i * 10:(i + 1) * 10]).mean())
+            plt.figure(fign + 1)
+            plt.bar(np.arange(len(accuracies_sub)), accuracies_sub, label=label)
+            accuracies.append(acc)
+            stds.append(std)
+            data_test, label_test = None, None
 
     plt.figure(fign)
     plt.ylim(0, 1)

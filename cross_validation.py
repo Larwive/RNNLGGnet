@@ -625,13 +625,14 @@ class CrossValidation:
         # with open(self.text_file, 'a') as file:
         #    file.write(str(content) + '\n')
 
-    def compare(self, subjects=None, data_test=None, label_test=None, rate: float = .2):
+    def compare(self, subjects=None, data_test=None, label_test=None, rate: float = .2, phase:int=1):
         """
         this function achieves n-fold cross-validation
         :param subjects: how many subject to load
         :param data_test: (segments, 1, channel, data)
         :param label_test: (segments,)
         :param rate: how much to split the data
+        :param phase: The phase to use (if applicable)
         """
         # Train and evaluate the model subject by subject
 
@@ -651,7 +652,7 @@ class CrossValidation:
             data_test = np.expand_dims(data_test, axis=1)
 
             acc, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
-                               subject=sub, phase=1)
+                               subject=sub, phase=phase)
             print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
 
             tta.append(acc)
