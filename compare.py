@@ -88,16 +88,23 @@ model_pathss = [[
     './save_overlap50_EEG_hem/',
     './save_overlap50_EEG_hem2/',
     './save_overlap50_EMG_fro/',
+    './save_overlap50_EMG_fro2/',
     './save_overlap50_EMG_gen/',
+    './save_overlap50_EMG_gen2/',
     './save_overlap50_oth_fro/',
+    './save_overlap50_oth_fro2/',
     './save_overlap50_oth_gen/',
+    './save_overlap50_oth_gen2/',
 ], [
     './save_overlap50_park_resnet/',
 ], [
     './save_overlap50_rbd_fro/',
+    './save_overlap50_rbd_fro2/',
     './save_overlap50_rbd_hem/',
+    './save_overlap50_rbd_hem2/',
 ], [
     './save_overlap50_rbd_resnet/',
+    './save_overlap50_rbd_resnet2/',
 ]]
 
 input_shapess = [[
@@ -115,6 +122,10 @@ input_shapess = [[
     (1, 8, 512),
     (1, 3, 512),
     (1, 3, 512),
+    (1, 3, 512),
+    (1, 3, 512),
+    (1, 6, 512),
+    (1, 6, 512),
     (1, 6, 512),
     (1, 6, 512),
 ], [
@@ -122,7 +133,10 @@ input_shapess = [[
 ], [
     (1, 3, 512),
     (1, 3, 512),
+    (1, 3, 512),
+    (1, 3, 512),
 ], [
+    (1, 3, 512),
     (1, 3, 512)
 ]]
 
@@ -140,16 +154,23 @@ labelss = [[
     "EEG channels, hem graph",
     "EEG channels, hem graph2",
     "EMG channels, fro graph",
+    "EMG channels, fro graph2",
     "EMG channels, gen graph",
+    "EMG channels, gen graph2",
     "Oth channels, fro graph",
+    "Oth channels, fro graph2",
     "Oth channels, gen graph",
+    "Oth channels, gen graph2",
 ], [
     "All channels",
 ], [
     "All channels, fro graph",
+    "All channels, fro graph2",
     "All channels, hem graph",
+    "All channels, hem graph2",
 ], [
     "All channels",
+    "All channels2",
 ]]
 
 label_types = ["park", "park", "rbd", "rbd"]
@@ -188,9 +209,13 @@ channels_lists = [[
      ['EEG LOC-A2'], ['EEG ROC-A1']],
 
     [['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin']],
+    [['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin']],
+    [['EMG Left_Leg', 'EMG Right_Leg'], ['EMG Chin']],
     [['EMG Left_Leg', 'EMG Right_Leg'], ['EMG Chin']],
 
     [['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']],
+    [['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']],
+    [['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']],
     [['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']],
 ], [
     [['EEG F3-A2', 'EEG F4-A1', 'EEG C3-A2', 'EEG C4-A1', 'EEG O1-A2', 'EEG O2-A1',
@@ -198,8 +223,11 @@ channels_lists = [[
       'Snoring Snore', 'Airflow', 'Resp Thorax', 'Resp Abdomen', 'Manual']]
 ], [
     [['EEG O1-A2', 'EEG O2-A1'], ['ECG EKG']],
+    [['EEG O1-A2', 'EEG O2-A1'], ['ECG EKG']],
+    [['EEG O1-A2'], ['EEG O2-A1'], ['ECG EKG']],
     [['EEG O1-A2'], ['EEG O2-A1'], ['ECG EKG']]
 ], [
+    [['EEG O1-A2', 'EEG O2-A1', 'ECG EKG']],
     [['EEG O1-A2', 'EEG O2-A1', 'ECG EKG']]
 ]]
 
@@ -219,7 +247,7 @@ for model_paths, input_shapes, labels, channels_lists, train_label, sub_to_run, 
         xlabels,
         data_paths, label_types, model_types):
     args.data_path = data_path
-    args.subjects = sub_to_run
+    args.subjects = sub_to_run[-1] + 1
     args.label_type = label_type
     args.model_type = model_type
     plotting += 1
@@ -231,12 +259,13 @@ for model_paths, input_shapes, labels, channels_lists, train_label, sub_to_run, 
             max_phase = 3
         else:  # resnet
             max_phase = 1
-        for phase in range(max_phase):
+        args.save_path = model_path
+        args.input_shape = input_shape
+        pd = PrepareData(args)
+        pd.run(sub_to_run, split=True, expand=True, forced_graph=channels, verbose=False)
+        for phase in range(1, max_phase + 1):
+            print_red("{} phase {}".format(model_path, phase))
             accuracies_sub = []
-            args.save_path = model_path
-            args.input_shape = input_shape
-            pd = PrepareData(args)
-            pd.run(sub_to_run, split=True, expand=True, forced_graph=channels, verbose=False)
 
             cv = CrossValidation(args)
             seed_all(args.random_seed)

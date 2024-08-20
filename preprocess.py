@@ -7,7 +7,7 @@ from mne.io import RawArray
 warnings.filterwarnings("ignore")
 
 
-def update_channels(raw: mne.io.BaseRaw, kept_channels= None, verbose: int = 1) -> mne.io.BaseRaw:
+def update_channels(raw: mne.io.BaseRaw, kept_channels=None, verbose: int = 1) -> mne.io.BaseRaw:
     channels_to_remove = {
         'Air cannula',
         'Air cannual',
@@ -114,7 +114,7 @@ def normalize(raw: mne.io.BaseRaw) -> RawArray:
     return mne.io.RawArray(normalized_data, raw.info, verbose=0)
 
 
-def preprocess_raw(raw: mne.io.BaseRaw, kept_channels= None) -> mne.io.BaseRaw:
+def preprocess_raw(raw: mne.io.BaseRaw, kept_channels=None) -> mne.io.BaseRaw:
     raw = update_channels(raw, kept_channels=kept_channels, verbose=0)
     raw.filter(l_freq=0.5, h_freq=50, verbose=0)
     # raw = remove_muscle_artifacts(raw)

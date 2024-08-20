@@ -605,7 +605,7 @@ class CrossValidation:
                 if self.args.model_type == 'RNNLGGnet':
                     old_name = osp.join(self.args.save_path, 'candidate_phase{}.pth'.format(phase))
                     new_name = osp.join(self.args.save_path, 'max-acc_phase{}.pth'.format(phase))
-                else: #elif self.args.model_type == 'resnet':
+                else:  # elif self.args.model_type == 'resnet':
                     old_name = osp.join(self.args.save_path, 'candidate.pth')
                     new_name = osp.join(self.args.save_path, 'max-acc.pth')
                 if os.path.exists(new_name):
@@ -625,7 +625,7 @@ class CrossValidation:
         # with open(self.text_file, 'a') as file:
         #    file.write(str(content) + '\n')
 
-    def compare(self, subjects=None, data_test=None, label_test=None, rate: float = .2, phase:int=1):
+    def compare(self, subjects=None, data_test=None, label_test=None, rate: float = .2, phase: int = 1):
         """
         this function achieves n-fold cross-validation
         :param subjects: how many subject to load
@@ -643,6 +643,16 @@ class CrossValidation:
 
         accuracies = []
 
+        if phase > 1:
+            all_data, all_label = self.load_all(verbose=not self.args.reproduce, rate=rate)
+            all_data_p, all_label_p, all_dataloaders = [], [], []
+            for data, label in zip(all_data, all_label):
+                data_p, label_p = self.prepare_data_subject_fold(data, label)
+                data_p = np.expand_dims(data_p, axis=1)
+                all_data_p.append(data_p)
+                all_label_p.append(label_p)
+                all_dataloaders.append(get_dataloader(data_p, label_p, self.args.batch_size))
+
         for excluded_subs in subject_fold(subjects, rate):
             sub = excluded_subs[0]
             data_test, label_test = self.load_subjects(excluded_subs, verbose=not self.args.reproduce)
@@ -651,8 +661,14 @@ class CrossValidation:
 
             data_test = np.expand_dims(data_test, axis=1)
 
-            acc, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
-                               subject=sub, phase=phase)
+            if phase == 1:
+                acc, f1, cm = test(args=self.args, data=data_test, label=label_test, reproduce=self.args.reproduce,
+                                   subject=sub, phase=phase)
+            else:
+                val_loaders = [all_dataloaders[exc] for exc in excluded_subs]
+                acc, f1, cm = test_phase_2_3(args=self.args, test_loaders=val_loaders, reproduce=self.args.reproduce,
+                                             subject=sub, phase=phase)
+            accuracies.append(acc)
             print("Confusion matrix ([[TN, FP], [FN, TP]]):\n", cm)
 
             tta.append(acc)
