@@ -97,6 +97,7 @@ model_pathss = [[
     './save_overlap50_oth_gen2/',
 ], [
     './save_overlap50_park_resnet/',
+    './save_overlap50_park_resnet2/',
 ], [
     './save_overlap50_rbd_fro/',
     './save_overlap50_rbd_fro2/',
@@ -130,6 +131,7 @@ input_shapess = [[
     (1, 6, 512),
 ], [
     (1, 17, 512),
+    (1, 17, 512)
 ], [
     (1, 3, 512),
     (1, 3, 512),
@@ -163,6 +165,7 @@ labelss = [[
     "Oth channels, gen graph2",
 ], [
     "All channels",
+    "All channels 2",
 ], [
     "All channels, fro graph",
     "All channels, fro graph2",
@@ -170,7 +173,7 @@ labelss = [[
     "All channels, hem graph2",
 ], [
     "All channels",
-    "All channels2",
+    "All channels 2",
 ]]
 
 label_types = ["park", "park", "rbd", "rbd"]
@@ -218,6 +221,9 @@ channels_lists = [[
     [['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']],
     [['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']],
 ], [
+    [['EEG F3-A2', 'EEG F4-A1', 'EEG C3-A2', 'EEG C4-A1', 'EEG O1-A2', 'EEG O2-A1',
+      'EEG LOC-A2', 'EEG ROC-A1', 'EMG Chin', 'ECG EKG', 'EMG Left_Leg', 'EMG Right_Leg',
+      'Snoring Snore', 'Airflow', 'Resp Thorax', 'Resp Abdomen', 'Manual']],
     [['EEG F3-A2', 'EEG F4-A1', 'EEG C3-A2', 'EEG C4-A1', 'EEG O1-A2', 'EEG O2-A1',
       'EEG LOC-A2', 'EEG ROC-A1', 'EMG Chin', 'ECG EKG', 'EMG Left_Leg', 'EMG Right_Leg',
       'Snoring Snore', 'Airflow', 'Resp Thorax', 'Resp Abdomen', 'Manual']]
