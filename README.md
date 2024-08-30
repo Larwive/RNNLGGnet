@@ -56,16 +56,34 @@ Link to results: https://docs.google.com/document/d/1E_bEYQ98wCeGFsEgza_1uB-pqni
 
 - RBD
 
-The results on classifying whether a patient has RBD or not is very promising, reaching 99.98% accuracy at best on
-patients the model has never seen. Globally, phase 2 sharply decreases the accuracy by privileging one output over the
-other. Phase 3 might fix phase 2 a little or even make the predictions worse. So only use phase 1.
+The performance is assessed using a subject-wise cross-validation. It means that for each fold, a certain
+percentage of subjects are excluded from the training set and are used as the validation set. In the
+following results, a 20% excluded subjects rate is applied on the 39 subjects for RBD (both DREAMS
+and sleep centre datasets) and the 19 subjects for the PD (sleep centre dataset only).
 
-`resnet` has roughly the same results as `RNNLGGnet` (actually `LGGnet`).
+`RNNLGGnet` easily reaches 99% of accuracy when predicting whether a subject is suffering from RBD after
+phase 1. Phase 2 actually reduces accuracy to below 50% and tends to make the model favour one output
+over the other (0 or 1 for the presence of RBD). Phase 3 can have different behaviour, it was able to fix
+the bias of phase 2 as well as going deeper in the bias and almost only giving one type of output.
+
+As a result, it is more efficient to only keep the slightly modified LGGnet training step. The high
+accuracy might also come from the distinct datasets since data from DREAMS is labelled as 0 (healthy)
+while data from sleep centre is labelled as 1 (have RBD) even if everything have been normalised. A
+whole dataset from the same conditions will be crucial to have trustable results.
+
+The adapted `ResNet-50` has similar results when detecting RBD as `LGGnet`, which is to easily reach 99%
+of accuracy. The resemblance doesn’t stop here, as `ResNet-50` could only reach 68% accuracy at best for
+a certain subject group, while it had between 19% and 31% accuracy for other groups.
 
 - Parkinson
 
 On the parkinson part, the results highly depend on the subjects taken for training. The best results involve the EEG
 channels.
+`RNNLGGnet` can occasionally reach 80% of accuracy when determining whether a
+patient will develop the PD. However, this result is only attained for a certain subject group out of the 5
+folds. For the other 4 groups, the accuracy can only reach 40% at best. Overall, the mean accuracy is only
+about 50% while `ResNet-50` could only reach 68% accuracy at best for
+a certain subject group, while it had between 19% and 31% accuracy for other groups.
 
 Some of the best results are highlighted in green.
 Given the repartition of results, the labels should be more refined. The labels are currently naive for the parkinson
