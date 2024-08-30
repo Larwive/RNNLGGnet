@@ -17,6 +17,7 @@ def update_channels(raw: mne.io.BaseRaw, kept_channels=None, verbose: int = 1) -
         'EEG T3-A2',
         'EEG T4-A1',
         'EEG A1-A2',
+        'SaO2 SpO2',
 
         'EOG1-A2',
         'EOG2-A2',
@@ -43,6 +44,13 @@ def update_channels(raw: mne.io.BaseRaw, kept_channels=None, verbose: int = 1) -
     }
 
     renames = {
+        'EEG F3-A2': "F3",
+        'EEG F4-A1': "F4",
+        'EEG C3-A2': "C3",
+        'EEG C4-A1': "C4",
+        'EEG O1-A2': "O1",
+        'EEG O2-A1': "O2",
+
         'Snore': 'Snoring Snore',
         'EEG EKG-Ref': 'ECG EKG',
 
@@ -67,10 +75,25 @@ def update_channels(raw: mne.io.BaseRaw, kept_channels=None, verbose: int = 1) -
 
     if kept_channels is not None:
         raw = raw.pick(kept_channels, verbose=verbose)
+
+    raw.set_channel_types({
+        'EEG LOC-A2': "misc",
+        'EEG ROC-A1': "misc",
+        'EMG Chin': 'emg',
+        'EMG Left_Leg': 'emg',
+        'EMG Right_Leg': 'emg',
+        'ECG EKG': 'ecg',
+        'Snoring Snore': 'misc',
+        'Airflow': 'misc',
+        'Resp Thorax': 'misc',
+        'Resp Abdomen': 'misc',
+        #'SaO2 SpO2': 'misc',
+        'Manual': 'misc'
+    })
     return raw
 
 
-def remove_muscle_artifacts(raw: mne.io.BaseRaw, n_components: int = 15, method: str = "picard",
+def remove_muscle_artifacts(raw: mne.io.BaseRaw, n_components: int = 6, method: str = "picard",
                             max_iter: str = "auto", random_state: int = 97, montage: str = "",
                             plot: bool = False) -> mne.io.BaseRaw:
     """
@@ -114,10 +137,11 @@ def normalize(raw: mne.io.BaseRaw) -> RawArray:
     return mne.io.RawArray(normalized_data, raw.info, verbose=0)
 
 
-def preprocess_raw(raw: mne.io.BaseRaw, kept_channels=None) -> mne.io.BaseRaw:
+def preprocess_raw(raw: mne.io.BaseRaw, low_fq=.5, high_fq=50, kept_channels=None) -> mne.io.BaseRaw:
     raw = update_channels(raw, kept_channels=kept_channels, verbose=0)
-    raw.filter(l_freq=0.5, h_freq=50, verbose=0)
-    # raw = remove_muscle_artifacts(raw)
+    raw.filter(l_freq=low_fq, h_freq=high_fq, verbose=0)
+
+    raw = remove_muscle_artifacts(raw, montage='standard_1020')
 
     raw.resample(128, verbose=0)
     raw = normalize(raw)

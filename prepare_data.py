@@ -18,18 +18,13 @@ class PrepareData:
                                    'Snoring Snore', 'Airflow', 'Resp Thorax', 'Resp Abdomen', 'Manual']
             self.graph_fro = [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
                               ['EEG LOC-A2', 'EEG ROC-A1'], ['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin'],
-                              ['ECG EKG'],
-                              ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']]
-
+                              ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']]
             self.graph_gen = [['EEG F3-A2', 'EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
                               ['EEG LOC-A2', 'EEG ROC-A1'], ['EMG Left_Leg', 'EMG Right_Leg'], ['EMG Chin'],
-                              ['ECG EKG'],
-                              ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']]
-
+                              ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']]
             self.graph_hem = [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2'], ['EEG C4-A1'], ['EEG O1-A2'], ['EEG O2-A1'],
                               ['EEG LOC-A2'], ['EEG ROC-A1'], ['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin'],
-                              ['ECG EKG'],
-                              ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']]
+                              ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']]
 
             self.TS = ['EEG F3-A2', 'EEG F4-A1', 'EEG C3-A2', 'EEG C4-A1', 'EEG O1-A2', 'EEG O2-A1', 'EEG LOC-A2',
                        'EEG ROC-A1', 'EMG Chin', 'ECG EKG', 'EMG Left_Leg', 'EMG Right_Leg', 'Snoring Snore', 'Airflow',
