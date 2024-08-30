@@ -5,6 +5,15 @@ device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is
 
 
 def train_one_epoch(data_loader, net, loss_fn, optimizer, scheduler):
+    """
+    Train a model for 1 epoch.
+    :param data_loader: The data loader.
+    :param net: The model to train.
+    :param loss_fn: The loss function.
+    :param optimizer: The optimiser to use.
+    :param scheduler: The learning rate scheduler.
+    :return: Loss, predictions and actual labels (float, list, list).
+    """
     net.train()
     tl = Averager()
     pred_train = []
@@ -27,6 +36,14 @@ def train_one_epoch(data_loader, net, loss_fn, optimizer, scheduler):
 
 
 def predict(data_loader, net, loss_fn, require_cm: bool = False):
+    """
+    Computes the loss, predictions and actual labels (float, list, list) and eventually confusion matrix when evaluating a model on a data loader.
+    :param data_loader:  The data loader.
+    :param net: The model to evaluate the data on.
+    :param loss_fn: Loss function to use.
+    :param require_cm: Whether to return the confusion matrix too or not.
+    :return: Loss, predictions and actual labels [and confusion matrix] (float, list, list[, confusion matrix]).
+    """
     net.eval()
     pred_val = []
     act_val = []
@@ -49,6 +66,14 @@ def predict(data_loader, net, loss_fn, require_cm: bool = False):
 
 
 def predict_phase_2_3(data_loaders, net, loss_fn, require_cm: bool = False):
+    """
+    Like `predict` but on a series of data loaders.
+    :param data_loaders: Data loaders.
+    :param net: The model to evaluate the data loaders on.
+    :param loss_fn: Loss function to use.
+    :param require_cm: Whether to return the confusion matrix too or not.
+    :return: Loss, accuracy and f1 score [and confusion matrix] (float, float, float[, confusion matrix]).
+    """
     net.eval()
     pred_val = []
     act_val = []
@@ -78,7 +103,12 @@ def predict_phase_2_3(data_loaders, net, loss_fn, require_cm: bool = False):
     return vl.item(), acc, f1
 
 
-def set_up(args):
+def set_up(args) -> None:
+    """
+    Simple set-up function.
+    :param args: The arguments given to the main.
+    :return: None
+    """
     set_gpu(args.gpu)
     ensure_path(args.save_path)
     torch.manual_seed(args.random_seed)
@@ -95,7 +125,7 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
     def save_model(name):
         if args.model_type == 'RNNLGGnet':
             previous_model = osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase))
-        else:  #elif args.model_type == 'resnet':
+        else:  # elif args.model_type == 'resnet':
             previous_model = osp.join(args.save_path, '{}.pth'.format(name))
         if os.path.exists(previous_model):
             os.remove(previous_model)
@@ -194,7 +224,7 @@ def test(args, data, label, reproduce, subject, phase: int = 1):
     if reproduce:
         if args.model_type == 'RNNLGGnet':
             model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
-        else: #elif args.model_type == 'resnet':
+        else:  # elif args.model_type == 'resnet':
             model_name_reproduce = 'sub{}.pth'.format(subject)
         data_type = 'model'
         experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)
@@ -243,7 +273,7 @@ def combine_train(args, data, label, data_val, label_val, subject, fold, phase: 
     def save_model(name):
         if args.model_type == 'RNNLGGnet':
             previous_model = osp.join(args.save_path, '{}_phase{}.pth'.format(name, phase))
-        else: #elif args.model_type == 'resnet':
+        else:  # elif args.model_type == 'resnet':
             previous_model = osp.join(args.save_path, '{}.pth'.format(name))
         if os.path.exists(previous_model):
             os.remove(previous_model)
@@ -272,7 +302,7 @@ def combine_train(args, data, label, data_val, label_val, subject, fold, phase: 
             # save model here for reproduce
             if args.model_type == 'RNNLGGnet':
                 model_name_reproduce = 'sub{}_phase{}.pth'.format(subject, phase)
-            else: #elif args.model_type == 'resnet':
+            else:  # elif args.model_type == 'resnet':
                 model_name_reproduce = 'sub{}.pth'.format(subject)
             data_type = 'model'
             experiment_setting = 'T_{}_pool_{}'.format(args.T, args.pool)

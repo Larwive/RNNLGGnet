@@ -5,7 +5,7 @@ import numpy as np
 
 
 def compute_psd(path, compute_frequency, epoch_duration):
-    fig = plt.figure()
+    plt.figure()
     raw = mne.io.read_raw_fif(path, preload=True)
     sfreq = int(raw.info['sfreq'])
     duration = int(raw.n_times / sfreq)
@@ -16,7 +16,6 @@ def compute_psd(path, compute_frequency, epoch_duration):
     info_cropped['description'] = "Cropped EEG data"
     points = int(epoch_duration*sfreq)
     psd_dict = {}
-    plt.legend()
 
     for i in range(len(raw.info['ch_names'])):
         psd_dict[str(i)] = []
