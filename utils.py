@@ -138,8 +138,8 @@ def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2) -> RN
         previous_model.load_state_dict(torch.load(load_path_final, weights_only=False))
     else:  # phase=3 here
         previous_model = get_RNNLGG(args, excluded_subject, fold, phase - 1)
-    model = RNNLGGNet(previous_model, args.rnn_hidden_size, args.rnn_num_layers,
-                      args.rnn_dropout, phase=phase, input_size=input_size,
+    model = RNNLGGNet(LGG_model=previous_model, hidden_size=args.rnn_hidden_size, num_layers=args.rnn_num_layers,
+                      dropout_rate=args.rnn_dropout, phase=phase, input_size=input_size,
                       sampling_rate=int(args.sampling_rate * args.scale_coefficient),
                       num_T=args.T, out_graph=args.hidden,
                       pool=args.pool, pool_step_rate=args.pool_step_rate,
@@ -152,7 +152,7 @@ def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2) -> RN
 
 
 def get_resnet(args) -> ResNet:
-    model = ResNet(args.input_shape[1])
+    model = ResNet(input_channels=args.input_shape[1])
     return model
 
 
