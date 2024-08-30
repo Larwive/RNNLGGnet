@@ -1,9 +1,9 @@
 # RNNLGGnet
 
 An attempt to classify patients with RBD (REM sleep behaviour disorder) and predict whether an RBD patient will develop
-the Parkinson disease using an RNN-augmented LGGNet with PSG data.
+the Parkinson disease (PD) using an RNN-augmented LGGNet with PSG data.
 
-The code architecture and the model is taken from `yi-ding-cs`'s repository (https://github.com/yi-ding-cs/LGG).
+The code architecture and the 'LGGnet' model is taken from `yi-ding-cs`'s repository (https://github.com/yi-ding-cs/LGG).
 You probably want to check their repository for better understanding.
 
 I added an RNN part (a Gru layer) and made the training in 3 phases.
@@ -14,6 +14,28 @@ I added an RNN part (a Gru layer) and made the training in 3 phases.
 
 A resnet50-inspired model is also used to compare with `RNNLGGnet`. This model is adapted to take the same inputs as
 `RNNLGGnet`.
+
+## Data preprocessing
+
+The first considered dataset is from a sleep centre, containing whole-night EEG, EOG (electrooculogram),
+ECG (electrocardiogram) and EMG (electromyogram) recordings of patients suffering from REM sleep
+behaviour disorder (RBD). Some of these patients were later diagnosed with PD, and the dataset does not
+include healthy subjects. This dataset is not publicly available. This dataset alone can only train neural networks to predict whether an RBD
+sufferer will develop PD. This is why the DREAMS database (https://zenodo.org/records/2650142#.ZFJ0pnbMJD8), especially the DREAMS Subjects
+Database, which comprises whole-night EEG and ECG data from healthy subjects is added to complete
+the dataset. This enables the detection of RBD in comparison to healthy patients.
+
+A drawback from using multiple datasets simultaneously is data incompatibility. **Therefore, data is
+preprocessed through a band-pass filter (0.5-50 Hz), resampled to 128 Hz, and finally normalised.** An optional ICA is
+present in the code. The data is cut into epochs of 4 seconds (512 points) by default.
+
+The dataset from the sleep centre includes the channels F3-A2, F4-A1, C3-A2, C4-A1, O1-A2, O2-A1, LOC-A2, EEG ROC-A1,
+EMG Chin, ECG EKG, EMG Left_Leg, EMG Right_Leg, Snoring Snore, Airflow, Resp Thorax, Resp Abdomen, Manual. Those are the
+channels used for PD detection.
+
+However, because the recordings (sleep center and DREAMS) do not include the same channels, RBD detection is limited to
+only three channels (O1, O2, and ECG) are used for RBD detection.
+
 
 ## 1st phase (LGG)
 
