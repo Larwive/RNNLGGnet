@@ -116,6 +116,17 @@ def set_up(args) -> None:
 
 
 def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int):
+    """
+    A training loop using `train_one_epoch`.
+    :param args: The arguments given to the main.
+    :param model: The model to train.
+    :param train_loader: The data loader.
+    :param val_loader: The validation data loader.
+    :param subject: The subject being trained on (for saving and printing).
+    :param fold: The current cross-validation fold.
+    :param phase: The training phase it is on.
+    :return: Accuracy and f1 score.
+    """
     save_name = '_sub{}'.format(subject)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
@@ -184,6 +195,18 @@ def train_loop(args, model, train_loader, val_loader, subject, fold, phase: int)
 
 
 def train(args, data_train, label_train, data_val, label_val, subject, fold, phase: int):
+    """
+    Loader function for `train_loop`.
+    :param args: The arguments given to the main.
+    :param data_train: The data to train on.
+    :param label_train: The labels associated to the train data.
+    :param data_val: The validation data.
+    :param label_val: The labels associated to the validation data.
+    :param subject: The subject being trained on (for saving and printing).
+    :param fold: The current cross-validation fold.
+    :param phase: The training phase it is on.
+    :return: Call to `train_loop`.
+    """
     seed_all(args.random_seed)
     set_up(args)
 
@@ -196,6 +219,18 @@ def train(args, data_train, label_train, data_val, label_val, subject, fold, pha
 
 
 def train_phase_2_3(args, data_train, label_train, data_val, label_val, subject, fold, phase: int = 2):
+    """
+    Same as `train`, but for phases 2 and 3.
+    :param args: The arguments given to the main.
+    :param data_train: The data to train on.
+    :param label_train: The labels associated to the train data.
+    :param data_val: The validation data.
+    :param label_val: The labels associated to the validation data.
+    :param subject: The subject being trained on (for saving and printing).
+    :param fold: The current cross-validation fold.
+    :param phase: The training phase it is on.
+    :return: Call to `train_loop`.
+    """
     seed_all(args.random_seed)
     set_up(args)
 
@@ -210,6 +245,16 @@ def train_phase_2_3(args, data_train, label_train, data_val, label_val, subject,
 
 
 def test(args, data, label, reproduce, subject, phase: int = 1):
+    """
+    A function for testing the model.
+    :param args: The arguments given to the main.
+    :param data: The data to test on.
+    :param label: The labels associated to the test data.
+    :param reproduce: Whether the context is training a new model or getting the results of a pre-trained model.
+    :param subject: The subject whose model is being tested.
+    :param phase: The training phase it is on.
+    :return: Accuracy, f1 score and confusion matrix.
+    """
     set_up(args)
     seed_all(args.random_seed)
 
@@ -238,6 +283,15 @@ def test(args, data, label, reproduce, subject, phase: int = 1):
 
 
 def test_phase_2_3(args, test_loaders, reproduce, subject, phase: int = 2):
+    """
+    Same as `test` but for phases 2 and 3.
+    :param args: The arguments given to the main.
+    :param test_loaders: The data loaders to test on.
+    :param reproduce: Whether the context is training a new model or getting the results of a pre-trained model.
+    :param subject: The subject whose model is being tested.
+    :param phase: The training phase it is on.
+    :return: Accuracy, f1 score and confusion matrix.
+    """
     set_up(args)
     seed_all(args.random_seed)
 

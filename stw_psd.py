@@ -3,8 +3,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-
-def compute_psd(path, compute_frequency, epoch_duration):
+def compute_psd(path, compute_frequency, epoch_duration) -> None:
+    """
+    Compute the PSD epoch by epoch and plot it little by little.
+    :param path: The path to the fif file.
+    :param compute_frequency: The frequency at which compute the PSD epoch.
+    :param epoch_duration: The duration of epoch to take for PSD.
+    :return: None
+    """
     plt.figure()
     raw = mne.io.read_raw_fif(path, preload=True)
     sfreq = int(raw.info['sfreq'])
@@ -14,20 +20,20 @@ def compute_psd(path, compute_frequency, epoch_duration):
 
     info_cropped = mne.create_info(orig_ch_names, orig_sfreq, ch_types=['eeg'] * len(raw.info['ch_names']))
     info_cropped['description'] = "Cropped EEG data"
-    points = int(epoch_duration*sfreq)
+    points = int(epoch_duration * sfreq)
     psd_dict = {}
 
     for i in range(len(raw.info['ch_names'])):
         psd_dict[str(i)] = []
 
     for i in range(duration * compute_frequency - points):
-        cropped = raw.get_data()[:, int(i * sfreq / compute_frequency):int(i * sfreq / compute_frequency)+points]
+        cropped = raw.get_data()[:, int(i * sfreq / compute_frequency):int(i * sfreq / compute_frequency) + points]
 
         raw_cropped = mne.io.RawArray(cropped, info_cropped, verbose=0)
         raw_cropped.set_meas_date(raw.info['meas_date'])
         psd, frequencies = mne.time_frequency.psd_array_multitaper(raw_cropped.get_data(), sfreq=sfreq,
-                                                                               fmin=2,
-                                                                               fmax=3, verbose=0)
+                                                                   fmin=2,
+                                                                   fmax=3, verbose=0)
         arr = np.array(psd)
         arr = arr.mean(axis=1)
         for j in range(len(arr)):
@@ -44,6 +50,7 @@ def compute_psd(path, compute_frequency, epoch_duration):
     plt.title("PSD over time ({} s/epoch)".format(epoch_duration))
     plt.show()
 
+
 if __name__ == '__main__':
-    #compute_psd('stw/102-10-21.fif', 5, 3.7)
+    # compute_psd('stw/102-10-21.fif', 5, 3.7)
     compute_psd('stw/102-10-21.fif', 5, 3.7)
