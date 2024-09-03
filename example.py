@@ -15,13 +15,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--path', type=str)
 parser.add_argument('--lgg-path', type=str)  # To be filled when loading a RNNLGGnet model too.
 parser.add_argument('--resnet-path', type=str)
-parser.add_argument('--label-type', type=str, default='park', choices=['rbd', 'park'])
+parser.add_argument('--label-type', type=str, default='park', choices=['rbd', 'park'])  # Warning
 parser.add_argument('--graph-type', type=str, default='hem', choices=['fro', 'gen', 'hem', 'BL'])
 parser.add_argument('--input-shape', type=tuple, default=(1, 17, 512))  # Warning
 parser.add_argument('--sampling-rate', type=int, default=128)  # Warning
-parser.add_argument('--T', type=int, default=64)
-parser.add_argument('--hidden', type=int, default=32)
-parser.add_argument('--pool', type=int, default=16)
+parser.add_argument('--T', type=int, default=64)  # Warning
+parser.add_argument('--hidden', type=int, default=32)  # Warning
+parser.add_argument('--pool', type=int, default=16)  # Warning
 parser.add_argument('--pool-step-rate', type=float, default=0.25)
 parser.add_argument('--rnn-hidden-size', type=int, default=10)  # Warning
 parser.add_argument('--rnn-num-layers', type=int, default=10)  # Warning
