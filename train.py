@@ -38,7 +38,7 @@ def train_one_epoch(data_loader, net, loss_fn, optimizer, scheduler):
 def predict(data_loader, net, loss_fn, require_cm: bool = False):
     """
     Computes the loss, predictions and actual labels (float, list, list) and eventually confusion matrix when evaluating a model on a data loader.
-    :param data_loader:  The data loader.
+    :param data_loader: The data loader.
     :param net: The model to evaluate the data on.
     :param loss_fn: Loss function to use.
     :param require_cm: Whether to return the confusion matrix too or not.

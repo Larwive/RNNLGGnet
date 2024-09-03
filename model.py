@@ -58,7 +58,7 @@ class LGGNet(nn.Module):
             PowerLayer(dim=-1, length=pool, step=int(pool_step_rate * pool))
         )
 
-    def __init__(self, input_size, sampling_rate, num_T, out_graph, dropout_rate, pool, pool_step_rate, idx_graph):
+    def __init__(self, input_size, sampling_rate, num_T, out_graph, pool, pool_step_rate, idx_graph, dropout_rate=0):
         # input_size: EEG frequency x channel x datapoint
         super(LGGNet, self).__init__()
         self.idx = idx_graph
@@ -213,9 +213,9 @@ class Aggregator:
 
 
 class RNNLGGNet(LGGNet, nn.Module):
-    def __init__(self, LGG_model, hidden_size, num_layers, dropout_rate, input_size, sampling_rate, num_T, out_graph,
-                 pool, pool_step_rate, idx_graph, phase: int = 2):
-        super().__init__(input_size, sampling_rate, num_T, out_graph, dropout_rate, pool, pool_step_rate, idx_graph)
+    def __init__(self, LGG_model, hidden_size, num_layers, input_size, sampling_rate, num_T, out_graph,
+                 pool, pool_step_rate, idx_graph, phase: int = 2, dropout_rate=0):
+        super().__init__(input_size, sampling_rate, num_T, out_graph, pool, pool_step_rate, idx_graph, dropout_rate)
         self.lgg = LGG_model
         self.input_size = input_size
         self.idx = LGG_model.idx
