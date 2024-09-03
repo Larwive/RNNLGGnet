@@ -11,20 +11,22 @@ class PrepareData:
         self.data = None
         self.label = None
         self.model = None
-        self.data_path = args.data_path
+        self.data_path = args.data_path if hasattr(args, 'data_path') else None
         if args.label_type == 'park':
             self.original_order = ['EEG F3-A2', 'EEG F4-A1', 'EEG C3-A2', 'EEG C4-A1', 'EEG O1-A2', 'EEG O2-A1',
                                    'EEG LOC-A2', 'EEG ROC-A1', 'EMG Chin', 'ECG EKG', 'EMG Left_Leg', 'EMG Right_Leg',
                                    'Snoring Snore', 'Airflow', 'Resp Thorax', 'Resp Abdomen', 'Manual']
             self.graph_fro = [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
                               ['EEG LOC-A2', 'EEG ROC-A1'], ['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin'],
-                              ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']]
+                              ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'],
+                              ['Manual']]
             self.graph_gen = [['EEG F3-A2', 'EEG F4-A1'], ['EEG C3-A2', 'EEG C4-A1'], ['EEG O1-A2', 'EEG O2-A1'],
                               ['EEG LOC-A2', 'EEG ROC-A1'], ['EMG Left_Leg', 'EMG Right_Leg'], ['EMG Chin'],
                               ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax', 'Resp Abdomen'], ['Manual']]
             self.graph_hem = [['EEG F3-A2'], ['EEG F4-A1'], ['EEG C3-A2'], ['EEG C4-A1'], ['EEG O1-A2'], ['EEG O2-A1'],
                               ['EEG LOC-A2'], ['EEG ROC-A1'], ['EMG Left_Leg'], ['EMG Right_Leg'], ['EMG Chin'],
-                              ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'], ['Manual']]
+                              ['ECG EKG'], ['Snoring Snore'], ['Airflow'], ['Resp Thorax'], ['Resp Abdomen'],
+                              ['Manual']]
 
             self.TS = ['EEG F3-A2', 'EEG F4-A1', 'EEG C3-A2', 'EEG C4-A1', 'EEG O1-A2', 'EEG O2-A1', 'EEG LOC-A2',
                        'EEG ROC-A1', 'EMG Chin', 'ECG EKG', 'EMG Left_Leg', 'EMG Right_Leg', 'Snoring Snore', 'Airflow',
@@ -168,8 +170,8 @@ class PrepareData:
         dataset.close()
 
     @staticmethod
-    def split(data: np.ndarray, label, segment_length: float = 1, overlap: float = 0, sampling_rate: int = 256,
-              verbose: float = True) -> tuple[np.ndarray, np.ndarray]:
+    def split(data: np.ndarray, label, segment_length: float = 1., overlap: float = 0., sampling_rate: int = 256,
+              verbose: bool = True) -> tuple[np.ndarray, np.ndarray]:
         """
         This function split one trial's data into shorter segments
         :param data: (trial, f, channel, data)
@@ -196,3 +198,24 @@ class PrepareData:
         data = data_split_array
         assert len(data) == len(label)
         return data, label
+
+    def prepare_raw_data(self, raw, split: bool = False, expand: bool = True, segment_length: float = 1.,
+                         overlap: float = 0., verbose: bool = True):
+        data_ = np.array(raw.get_data())
+        self.reorder_channel(data=data_, graph=self.graph_type)
+
+        if expand:
+            # expand one dimension for deep learning(CNNs)
+            data_ = np.expand_dims(data_, axis=-3)
+
+        if split:
+            data_shape = data_.shape
+            step = int(segment_length * raw.info['sfreq'] * (1 - overlap))
+            data_segment = int(raw.info['sfreq'] * segment_length)
+            number_segment = int((data_shape[-1] - data_segment) // step)
+            data_split = [data_[:, :, (i * step):(i * step + data_segment)] for i in range(number_segment + 1)]
+            data_ = np.stack(data_split, axis=1)
+        if verbose:
+            print("The data is split and prepared: Data shape:{}".format(data_.shape))
+
+        return data_

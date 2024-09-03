@@ -76,7 +76,7 @@ def update_channels(raw: mne.io.BaseRaw, kept_channels=None, verbose: int = 1) -
     if kept_channels is not None:
         raw = raw.pick(kept_channels, verbose=verbose)
 
-    raw.set_channel_types({
+    """raw.set_channel_types({
         'EEG LOC-A2': "misc",
         'EEG ROC-A1': "misc",
         'EMG Chin': 'emg',
@@ -89,7 +89,7 @@ def update_channels(raw: mne.io.BaseRaw, kept_channels=None, verbose: int = 1) -
         'Resp Abdomen': 'misc',
         #'SaO2 SpO2': 'misc',
         'Manual': 'misc'
-    })
+    })"""
     return raw
 
 

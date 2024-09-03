@@ -108,8 +108,8 @@ def get_model(args) -> nn.Module:
 def get_LGG(args) -> LGGNet:
     """
     Returns a blank LGGNet model.
-    :param args:
-    :return:
+    :param args: The arguments given to the main.
+    :return: A blank LGGNet model.
     """
     idx_local_graph = list(np.array(h5py.File('num_chan_local_graph_{}.hdf'.format(args.graph_type), 'r')['data']))
     channels = sum(idx_local_graph)
@@ -124,6 +124,14 @@ def get_LGG(args) -> LGGNet:
 
 
 def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2) -> RNNLGGNet:
+    """
+    Returns a blank or pretrained RNNLGGNet model. To be used while training or reproducing results.
+    :param args: The arguments given to the main.
+    :param excluded_subject: The first excluded subject in the subject-wise cross-validation.
+    :param fold: The current fold.
+    :param phase: The current phase.
+    :return: A blank or pretrained RNNLGGNet model.
+    """
     idx_local_graph = list(np.array(h5py.File('num_chan_local_graph_{}.hdf'.format(args.graph_type), 'r')['data']))
     channels = sum(idx_local_graph)
     input_size = (args.input_shape[0], channels, args.input_shape[2])
@@ -152,7 +160,53 @@ def get_RNNLGG(args, excluded_subject: int, fold: int = 0, phase: int = 2) -> RN
 
 
 def get_resnet(args) -> ResNet:
+    """
+    Returns a blank ResNet model.
+    :param args: The arguments given to the main.
+    :return: A blank ResNet model.
+    """
     model = ResNet(input_channels=args.input_shape[1])
+    return model
+
+
+def load_LGG(path, graph_type, input_size, sampling_rate, n_out_channels, n_hidden, pool, pool_step_rate):
+    idx_local_graph = list(np.array(h5py.File('num_chan_local_graph_{}.hdf'.format(graph_type), 'r')['data']))
+    input_size = [input_size[0], sum(idx_local_graph), input_size[2]]
+    model = LGGNet(input_size=input_size,
+                   sampling_rate=int(sampling_rate),
+                   num_T=n_out_channels, out_graph=n_hidden,
+                   pool=pool, pool_step_rate=pool_step_rate,
+                   idx_graph=idx_local_graph)
+    model.load_state_dict(torch.load(path, weights_only=False))
+    return model
+
+
+def load_RNNLGG(path, LGG_path, graph_type, input_size, sampling_rate, n_out_channels, n_hidden, pool, pool_step_rate,
+                rnn_hidden_size, rnn_num_layers):
+    idx_local_graph = list(np.array(h5py.File('num_chan_local_graph_{}.hdf'.format(graph_type), 'r')['data']))
+    input_size = [input_size[0], sum(idx_local_graph), input_size[2]]
+
+    LGG_model = load_LGG(LGG_path, graph_type=graph_type, input_size=input_size, sampling_rate=sampling_rate,
+                         n_out_channels=n_out_channels, n_hidden=n_hidden, pool=pool, pool_step_rate=pool_step_rate)
+
+    model_phase2 = RNNLGGNet(LGG_model=LGG_model, hidden_size=rnn_hidden_size, num_layers=rnn_num_layers,
+                      input_size=input_size,
+                      sampling_rate=int(sampling_rate),
+                      num_T=n_out_channels, out_graph=n_hidden,
+                      pool=pool, pool_step_rate=pool_step_rate,
+                      idx_graph=idx_local_graph)
+    model = RNNLGGNet(LGG_model=model_phase2, hidden_size=rnn_hidden_size, num_layers=rnn_num_layers,
+                      input_size=input_size,
+                      sampling_rate=int(sampling_rate),
+                      num_T=n_out_channels, out_graph=n_hidden,
+                      pool=pool, pool_step_rate=pool_step_rate,
+                      idx_graph=idx_local_graph, phase=3)
+    return model
+
+
+def load_resnet(path, input_channels):
+    model = ResNet(input_channels=input_channels)
+    model.load_state_dict(torch.load(path, weights_only=False))
     return model
 
 
