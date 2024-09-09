@@ -25,7 +25,7 @@ def compute_psd(path, compute_frequency, epoch_duration) -> None:
     custom_ticks = []
     for i in range(len(raw.info['ch_names'])):
         custom_labels.extend([raw.info['ch_names'][i], 'd{}/dt'.format(raw.info['ch_names'][i])])
-        custom_ticks.extend([i, i+.5])
+        custom_ticks.extend([10*i, 10*i+5])
 
     info_cropped = mne.create_info(orig_ch_names, orig_sfreq, ch_types=['eeg'] * len(raw.info['ch_names']))
     info_cropped['description'] = "Cropped EEG data"
@@ -49,7 +49,7 @@ def compute_psd(path, compute_frequency, epoch_duration) -> None:
         arr = arr.mean(axis=1)
         for j in range(len(arr)):
             psd_dict[str(j)].append(arr[j])
-            der_dict[str(j)].append((arr[j]-psd_dict[str(j)][-1])/compute_frequency)
+            der_dict[str(j)].append((arr[j]-psd_dict[str(j)][-1-int(i>0)])/compute_frequency)
         if i % 500 == 0:
             plt.clf()
             plt.yticks([])
@@ -58,8 +58,8 @@ def compute_psd(path, compute_frequency, epoch_duration) -> None:
                          transform=plt.gca().get_yaxis_transform())
 
             for j in range(len(arr)):
-                plt.plot(X[:len(psd_dict[str(j)])], np.array(psd_dict[str(j)])+j)
-                plt.plot(X[:len(psd_dict[str(j)])+1], np.array(der_dict[str(j)])+j+.5)
+                plt.plot(X[:len(psd_dict[str(j)])], np.array(psd_dict[str(j)])+10*j)
+                plt.plot(X[:len(psd_dict[str(j)])+1], np.array(der_dict[str(j)])+10*j+5)
             plt.pause(0.001)
     print("Done.")
     plt.xlabel("Time")
