@@ -6,11 +6,13 @@ import numpy as np
 
 e, pi = np.e, np.pi
 N = 10  # Time ticks
-K = 1  # ?
-M = 1  # ?
-Q = 1  # ?
+K = None  # ?
+M = 4000  # ?
+Q = 30  # ?
 J = 3  # ?
 nu = 5  # ?
+
+freqs = np.linspace(0, 20, M)
 
 
 def f_gen(raw: mne.io.BaseRaw):
@@ -78,3 +80,93 @@ def CFT(n: int, m: int, f: Callable):
     for i in range(Q):
         s += np.linalg.norm(S_i(n, m, i, f))
     return s / Q
+
+
+def amp_sigma(n: int, CFTf):
+    sigmask = np.where(12 <= freqs <= 15)
+    return (freqs[1] - freqs[0]) * np.sum(CFTf[n, sigmask])
+
+
+def power_band(n, min_freq, max_freq, CFTf):
+    assert max_freq > min_freq
+    bandmask = np.where(min_freq <= freqs <= max_freq)
+    return (freqs[1] - freqs[0]) * np.sum(abs(CFTf[n, bandmask]) ** 2) / (max_freq - min_freq)
+
+def p_sigma(n:int, CFTf):
+    return power_band(n, c_star-.1, c_star+.1, CFTf)
+
+def p_delta(n:int, CFTf):
+    return power_band(n, .5, 4, CFTf)
+
+def p_theta(n:int, CFTf):
+    return power_band(n, 4, 8, CFTf)
+
+def p_alpha(n:int, CFTf):
+    return power_band(n, 8, 12, CFTf)
+
+def norm_p_sigma(n: int, CFTf):
+    return p_sigma(n, CFTf)/(p_delta(n, CFTf) + p_theta(n, CFTf) + p_alpha(n, CFTf) + p_sigma(n, CFTf))
+
+def regularization_term(c, n):
+    reg_term = 0
+    for l in range(1, n):
+        delta_c = c[l] - c[l - 1]
+        reg_term += abs(delta_c) ** 2
+    return reg_term
+
+
+def compute_R(l, c_l, CFTf):
+    numer = abs(CFTf[l, c_l])
+    denom = np.sum(abs(CFTf))
+    return np.log(numer / denom)
+
+
+def objective_function(c, CFTf, lambda_penalty, n):
+    R_sum = sum([compute_R(l, c[l], CFTf) for l in range(n)])
+    reg_term = regularization_term(c, n)
+    return R_sum - lambda_penalty * reg_term
+
+
+def possible_candidates(c_l, M, step_size=1):
+    candidates = []
+    if c_l - step_size >= min(M):
+        candidates.append(c_l - step_size)
+    candidates.append(c_l)
+    if c_l + step_size <= max(M):
+        candidates.append(c_l + step_size)
+    return candidates
+
+
+def optimize_c(c, CFTf, lambda_penalty, min_freq=10, max_freq=15, max_iterations: int = 10):
+    for iteration in range(max_iterations):
+        freqmask = np.where(min_freq <= freqs <= max_freq)
+        for l in freqs[freqmask]:
+            best_c_l = c[l]
+            best_obj_value = objective_function(c, CFTf, lambda_penalty, n)
+
+            for candidate_c_l in possible_candidates(c[l]):
+                c[l] = candidate_c_l
+                obj_value = objective_function(c, CFTf, lambda_penalty, n)
+                if obj_value > best_obj_value:
+                    best_c_l = candidate_c_l
+                    best_obj_value = obj_value
+
+            c[l] = best_c_l
+        # c = smooth_curve(c)  # Optional
+    return c
+
+
+if __name__ == '__main__':
+    path = ''
+    raw = mne.io.read_raw_fif(path, preload=True)
+    K = raw.info['sfreq']
+    f = f_gen(raw)
+
+    CFTf = np.zeros((raw.n_times, M))
+    for i in range(raw.n_times):
+        for m in range(M):
+            CFTf[i, m] = CFT(i, m, f)
+    c = [0 for _ in range(N)]
+    lambda_penalty = ...
+    c_star = optimize_c(c, CFTf, lambda_penalty)
+
