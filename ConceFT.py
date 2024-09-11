@@ -6,7 +6,7 @@ import numpy as np
 
 e, pi = np.e, np.pi
 N = 10  # Time ticks
-K = None  # ?
+K = 0  # ?
 M = 4000  # ?
 Q = 30  # ?
 J = 3  # ?
@@ -127,18 +127,18 @@ def compute_R(l, c_l, CFTf):
     return np.log(numer / denom)
 
 
-def objective_function(c, CFTf, lambda_penalty, n):
-    R_sum = sum([compute_R(l, c[l], CFTf) for l in range(n)])
-    reg_term = regularization_term(c, n)
+def objective_function(c, CFTf, lambda_penalty):
+    R_sum = sum([compute_R(l, c[l], CFTf) for l in range(M)])
+    reg_term = regularization_term(c, M)
     return R_sum - lambda_penalty * reg_term
 
 
-def possible_candidates(c_l, M, step_size=1):
+def possible_candidates(c_l, step_size=1):
     candidates = []
-    if c_l - step_size >= min(M):
+    if c_l - step_size >= 0:
         candidates.append(c_l - step_size)
     candidates.append(c_l)
-    if c_l + step_size <= max(M):
+    if c_l + step_size <= M:
         candidates.append(c_l + step_size)
     return candidates
 
@@ -148,11 +148,11 @@ def optimize_c(c, CFTf, lambda_penalty, min_freq=10, max_freq=15, max_iterations
         freqmask = np.where(min_freq <= freqs <= max_freq)
         for l in freqs[freqmask]:
             best_c_l = c[l]
-            best_obj_value = objective_function(c, CFTf, lambda_penalty, n)
+            best_obj_value = objective_function(c, CFTf, lambda_penalty)
 
             for candidate_c_l in possible_candidates(c[l]):
                 c[l] = candidate_c_l
-                obj_value = objective_function(c, CFTf, lambda_penalty, n)
+                obj_value = objective_function(c, CFTf, lambda_penalty)
                 if obj_value > best_obj_value:
                     best_c_l = candidate_c_l
                     best_obj_value = obj_value
@@ -160,6 +160,23 @@ def optimize_c(c, CFTf, lambda_penalty, min_freq=10, max_freq=15, max_iterations
             c[l] = best_c_l
         # c = smooth_curve(c)  # Optional
     return c
+
+
+def get_cons_int(arr: np.ndarray[int]):
+    indexes = []
+    start = 0
+    for i in range(len(arr) - 1):
+        if arr[i] + 1 != arr[i + 1]:
+            if start == i:
+                indexes.append((np.array([start]),))
+            else:
+                indexes.append((np.array([start, i]),))
+            start = i + 1
+    if start < len(arr) - 1:
+        indexes.append((np.array([start, len(arr) - 1]),))
+    elif start == len(arr) - 1:
+        indexes.append((np.array([start]),))
+    return indexes
 
 
 if __name__ == '__main__':
@@ -175,3 +192,15 @@ if __name__ == '__main__':
     c = [0 for _ in range(N)]
     lambda_penalty = ...
     c_star = optimize_c(c, CFTf, lambda_penalty)
+
+    amps_sigma = np.array([amp_sigma(i, CFTf) for i in range(N)])
+    amps_avg, amps_std = np.average(amps_sigma), np.std(amps_sigma)
+
+    norm_ps_sigma = np.array([norm_p_sigma(i, CFTf) for i in range(N)])
+
+    delta = 1
+    epsilon = .2
+    T1 = np.where(amps_sigma > amps_avg + delta * amps_std)
+    T2 = np.where(norm_ps_sigma >= epsilon)
+
+    I = np.intersect1d(T1, T2, assume_unique=True)
