@@ -92,20 +92,26 @@ def power_band(n, min_freq, max_freq, CFTf):
     bandmask = np.where(min_freq <= freqs <= max_freq)
     return (freqs[1] - freqs[0]) * np.sum(abs(CFTf[n, bandmask]) ** 2) / (max_freq - min_freq)
 
-def p_sigma(n:int, CFTf):
-    return power_band(n, c_star-.1, c_star+.1, CFTf)
 
-def p_delta(n:int, CFTf):
+def p_sigma(n: int, CFTf):
+    return power_band(n, c_star - .1, c_star + .1, CFTf)
+
+
+def p_delta(n: int, CFTf):
     return power_band(n, .5, 4, CFTf)
 
-def p_theta(n:int, CFTf):
+
+def p_theta(n: int, CFTf):
     return power_band(n, 4, 8, CFTf)
 
-def p_alpha(n:int, CFTf):
+
+def p_alpha(n: int, CFTf):
     return power_band(n, 8, 12, CFTf)
 
+
 def norm_p_sigma(n: int, CFTf):
-    return p_sigma(n, CFTf)/(p_delta(n, CFTf) + p_theta(n, CFTf) + p_alpha(n, CFTf) + p_sigma(n, CFTf))
+    return p_sigma(n, CFTf) / (p_delta(n, CFTf) + p_theta(n, CFTf) + p_alpha(n, CFTf) + p_sigma(n, CFTf))
+
 
 def regularization_term(c, n):
     reg_term = 0
@@ -169,4 +175,3 @@ if __name__ == '__main__':
     c = [0 for _ in range(N)]
     lambda_penalty = ...
     c_star = optimize_c(c, CFTf, lambda_penalty)
-
