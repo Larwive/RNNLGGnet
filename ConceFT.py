@@ -1,28 +1,20 @@
 from collections.abc import Callable
 from scipy.special import eval_hermite
 import mne
-
 import numpy as np
+from tqdm import tqdm
 
 e, pi = np.e, np.pi
-N = 10  # Time ticks
-K = 0  # ?
-M = 4000  # ?
-Q = 30  # ?
-J = 3  # ?
-nu = 5  # ?
-
-freqs = np.linspace(0, 20, M)
 
 
 def f_gen(raw: mne.io.BaseRaw):
     def f(i: int, c: int):
-        return raw.get_data[c, i]
+        return raw.get_data()[c, i]
 
     return f
 
 
-def hermite_window(degree: int, N: int = 2 * K + 1):
+def hermite_window(degree: int, N: int):  # N = 2 * K + 1
     x = np.linspace(-10, 10, N)
     H = eval_hermite(degree, x)
 
@@ -31,33 +23,36 @@ def hermite_window(degree: int, N: int = 2 * K + 1):
     return np.exp(-0.5 * x ** 2) * H, exp_term * H_derivative - x * H * exp_term, x
 
 
-h1, h1p, x = hermite_window(1)
-h2, h2p, _ = hermite_window(2)
-h3, h3p, _ = hermite_window(3)
-
-h_s = [h1, h2, h3]
-hp_s = [h1p, h2p, h3p]
-
-zJ = [[e ** (np.random.random() * pi * 2j) for __ in range(J)] for _ in range(Q)]
-
-
 def g_gen(i, hw_s) -> Callable[[int], complex]:
     def g(x: int) -> complex:
+        if g.cache[x] is not None:
+            # print("Using cached g({}), i:{}".format(x, i))
+            return g.cache[x]
         s = 0
-        for j in range(1, J + 1):
-            s += zJ[i] * hw_s[j][x]
+        for j in range(J):
+            s += zJ[i][j] * hw_s[j][x]
+        g.cache[x] = s
+        # print("Cached g({}), i:{}".format(x, i))
         return s
+
+    g.cache = np.full((2 * K + 1,), None)
 
     return g
 
 
-def V_gen(g: Callable[[int], complex], f: Callable[[int], float]) -> Callable[[int, int], complex]:
+def V_gen(g: Callable[[int], complex], f: Callable[[int, int], float]) -> Callable[[int, int], complex]:
     def V(n: int, m: int) -> complex:
+        """if V.cache[n, m] is not None:
+            print("Using cached V({})".format(n, m))
+            return V.cache[n, m]"""
         s = 0
-        for k in range(1, 2 * K + 2):
-            s += f(n + k - K - 1) * g(k) * e ** (-pi * (k - 1) * m * 2j) / M
+        for k in range(2 * K + 1):
+            s += f(n + k - K - 1, 0) * g(k) * e ** (-pi * (k - 1) * m * 2j) / M
+        """V.cache[n][m] = s
+        print("Using cached V({})".format(n, m))"""
         return s
 
+    # V.cache = np.full((N, M), None, dtype=complex)
     return V
 
 
@@ -180,20 +175,36 @@ def get_cons_int(arr: np.ndarray[int]):
 
 
 if __name__ == '__main__':
-    path = ''
+    M = 4000  # ?
+    Q = 30  # ?
+    J = 3  # ?
+    nu = 5  # ?
+    freqs = np.linspace(0, 20, M)
+
+    path = 'stw/102-10-21.fif'
     raw = mne.io.read_raw_fif(path, preload=True)
-    K = raw.info['sfreq']
+    K = int(raw.info['sfreq'])
+    N = raw.n_times
     f = f_gen(raw)
 
-    CFTf = np.zeros((raw.n_times, M))
-    for i in range(raw.n_times):
+    zJ = np.array([[e ** (np.random.random() * pi * 2j) for __ in range(J)] for _ in range(Q)])
+
+    h1, h1p, x = hermite_window(1, 2 * K + 1)
+    h2, h2p, _ = hermite_window(2, 2 * K + 1)
+    h3, h3p, _ = hermite_window(3, 2 * K + 1)
+
+    h_s = [h1, h2, h3]
+    hp_s = [h1p, h2p, h3p]
+
+    CFTf = np.zeros((N, M))
+    for i in range(N):
         for m in range(M):
             CFTf[i, m] = CFT(i, m, f)
     c = [0 for _ in range(N)]
     lambda_penalty = ...
     c_star = optimize_c(c, CFTf, lambda_penalty)
 
-    amps_sigma = np.array([amp_sigma(i, CFTf) for i in range(N)])
+    amps_sigma = np.array([amp_sigma(i, CFTf) for i in tqdm(range(N))])
     amps_avg, amps_std = np.average(amps_sigma), np.std(amps_sigma)
 
     norm_ps_sigma = np.array([norm_p_sigma(i, CFTf) for i in range(N)])
@@ -204,3 +215,5 @@ if __name__ == '__main__':
     T2 = np.where(norm_ps_sigma >= epsilon)
 
     I = np.intersect1d(T1, T2, assume_unique=True)
+
+    print(I)
