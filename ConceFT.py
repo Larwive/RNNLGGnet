@@ -2,14 +2,17 @@ from collections.abc import Callable
 from scipy.special import eval_hermite
 import mne
 import numpy as np
+from functools import lru_cache
 from tqdm import tqdm
 
 e, pi = np.e, np.pi
 
 
-def f_gen(raw: mne.io.BaseRaw):
-    def f(i: int, c: int):
-        return raw.get_data()[c, i]
+def f_gen(raw_data: mne.io.BaseRaw):
+    def f(start: int, end: int, c: int):
+        return np.array(
+            [0] * (max(-start, 0)) + list(raw_data.get_data()[c, max(start, 0):end]) + [0] * (
+                max(end - raw_data.n_times, 0)))
 
     return f
 
@@ -23,54 +26,71 @@ def hermite_window(degree: int, N: int):  # N = 2 * K + 1
     return np.exp(-0.5 * x ** 2) * H, exp_term * H_derivative - x * H * exp_term, x
 
 
-def g_gen(i, hw_s) -> Callable[[int], complex]:
+@lru_cache(maxsize=None)
+def g_gen(i, der) -> Callable[[int], complex]:
+    @lru_cache(maxsize=None)
     def g(x: int) -> complex:
-        if g.cache[x] is not None:
-            # print("Using cached g({}), i:{}".format(x, i))
-            return g.cache[x]
-        s = 0
-        for j in range(J):
-            s += zJ[i][j] * hw_s[j][x]
-        g.cache[x] = s
-        # print("Cached g({}), i:{}".format(x, i))
-        return s
-
-    g.cache = np.full((2 * K + 1,), None)
+        return np.sum(zJ[i, :] * H_S[der][:, x - 1])
 
     return g
 
 
-def V_gen(g: Callable[[int], complex], f: Callable[[int, int], float]) -> Callable[[int, int], complex]:
-    def V(n: int, m: int) -> complex:
-        """if V.cache[n, m] is not None:
-            print("Using cached V({})".format(n, m))
-            return V.cache[n, m]"""
-        s = 0
-        for k in range(2 * K + 1):
-            s += f(n + k - K - 1, 0) * g(k) * e ** (-pi * (k - 1) * m * 2j) / M
-        """V.cache[n][m] = s
-        print("Using cached V({})".format(n, m))"""
-        return s
+@lru_cache(maxsize=None)
+def g_gen2(i, der) -> Callable[[int, int], complex]:
+    @lru_cache(maxsize=None)
+    def g(x_start: int, x_end: int) -> complex:
+        return np.sum(zJ[i, :].reshape((-1, 1)) * H_S[der][:, x_start:x_end - 1], axis=0)
 
-    # V.cache = np.full((N, M), None, dtype=complex)
+    return g
+
+
+@lru_cache(maxsize=None)
+def V_gen(i: int, der: int, f: Callable[[int, int, int], np.ndarray[float]]) -> Callable[
+    [int, int], complex]:
+    g = g_gen2(i, der)
+
+    @lru_cache(maxsize=None)
+    def V(n: int, m: int) -> complex:
+        k_range = np.arange(2 * K + 1)
+        pre_exp = np.exp(-pi * k_range * m * 2j / M)
+        f_data = f(n - K, n + K + 1, 0)
+        g_k = np.array(g(0, 2 * K + 2))
+        return np.sum(pre_exp * f_data * g_k)
+
+    return V
+
+@lru_cache(maxsize=None)
+def V_gen2(i: int, der: int, f: Callable[[int, int, int], np.ndarray[float]]) -> Callable[
+    [int, int, int], complex]:
+    g = g_gen2(i, der)
+
+    @lru_cache(maxsize=None)
+    def V(n: int, m_start: int, m_end: int) -> complex:
+        k_range = np.arange(2 * K + 1).reshape(-1, 1)
+        m_range = np.arange(m_start, m_end).reshape(1, -1)
+        k_m = k_range.dot(m_range)
+        pre_exp = np.exp(-pi * k_range * k_m * 2j / M)
+        f_data = f(n - K, n + K + 1, 0)
+        g_k = np.array(g(0, 2 * K + 2)).reshape((-1, 1))
+        return np.sum(pre_exp * f_data.reshape((-1, 1)) * g_k)
+
     return V
 
 
-def Omega(n: int, m: int, i: int, f):
-    Vi = V_gen(g_gen(i, h_s), f)
-    Vip = V_gen(g_gen(i, hp_s), f)
+@lru_cache(maxsize=None)
+def Omega(n: int, m: int, i: int, f: Callable[[int, int, int], np.ndarray[float]]):
+    Vi = V_gen(i, 0, f)
+    Vip = V_gen(i, 1, f)
     return -np.imag(N * Vip(n, m) / (2 * pi * Vi(n, m)))
 
 
-def S_i(n: int, m: int, i: int, f: Callable):
-    s = 0
-    Vi = V_gen(g_gen(i, h_s), f)
-    for l in range(int(Omega(n, m, i, f) - nu), int(Omega(n, m, i, f) + nu) + 1):
-        s += Vi(n, l)
-    return s
+@lru_cache(maxsize=None)
+def S_i(n: int, m: int, i: int, f: Callable[[int, int, int], np.ndarray[float]]):
+    Vi = V_gen2(i, 0, f)
+    return Vi(n, int(Omega(n, m, i, f) - nu), int(Omega(n, m, i, f) + nu) + 1)
 
 
-def CFT(n: int, m: int, f: Callable):
+def CFT(n: int, m: int, f: Callable[[int, int, int], np.ndarray[float]]):
     s = 0
     for i in range(Q):
         s += np.linalg.norm(S_i(n, m, i, f))
@@ -108,12 +128,8 @@ def norm_p_sigma(n: int, CFTf):
     return p_sigma(n, CFTf) / (p_delta(n, CFTf) + p_theta(n, CFTf) + p_alpha(n, CFTf) + p_sigma(n, CFTf))
 
 
-def regularization_term(c, n):
-    reg_term = 0
-    for l in range(1, n):
-        delta_c = c[l] - c[l - 1]
-        reg_term += abs(delta_c) ** 2
-    return reg_term
+def regularization_term(c: np.ndarray, n):
+    return np.sum(np.diff(c)[:n - 1] ** 2)
 
 
 def compute_R(l, c_l, CFTf):
@@ -187,23 +203,28 @@ if __name__ == '__main__':
     N = raw.n_times
     f = f_gen(raw)
 
-    zJ = np.array([[e ** (np.random.random() * pi * 2j) for __ in range(J)] for _ in range(Q)])
+    zJ = np.exp(1j * np.random.random((Q, J)) * 2 * np.pi)
 
     h1, h1p, x = hermite_window(1, 2 * K + 1)
     h2, h2p, _ = hermite_window(2, 2 * K + 1)
     h3, h3p, _ = hermite_window(3, 2 * K + 1)
 
-    h_s = [h1, h2, h3]
-    hp_s = [h1p, h2p, h3p]
+    h_s = np.array([h1, h2, h3])
+    hp_s = np.array([h1p, h2p, h3p])
 
+    H_S = [h_s, hp_s]
     CFTf = np.zeros((N, M))
+    print("Computing ConceFT...")
     for i in range(N):
         for m in range(M):
             CFTf[i, m] = CFT(i, m, f)
-    c = [0 for _ in range(N)]
-    lambda_penalty = ...
+    c = np.full((N,), 0)
+    lambda_penalty = .1 # ?
+
+    print("Computing C*...")
     c_star = optimize_c(c, CFTf, lambda_penalty)
 
+    print("Computing sigma amplitudes...")
     amps_sigma = np.array([amp_sigma(i, CFTf) for i in tqdm(range(N))])
     amps_avg, amps_std = np.average(amps_sigma), np.std(amps_sigma)
 
