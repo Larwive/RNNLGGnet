@@ -3,6 +3,9 @@ from scipy.special import eval_hermite
 import mne
 import numpy as np
 from functools import lru_cache
+import sys
+
+from sympy.codegen.ast import stderr
 from tqdm import tqdm
 
 e, pi = np.e, np.pi
@@ -11,7 +14,8 @@ M = 4000  # ?
 Q = 30  # ?
 J = 3  # ?
 nu = 5  # ?
-f = ... # Defined at the bottom
+f = ...  # Defined at the bottom
+chunk_size = 100
 
 
 def hermite_window(degree: int, N: int):  # N = 2 * K + 1
@@ -34,30 +38,55 @@ def g_gen2(i, der) -> Callable[[int, int], complex]:
 def g_calc(g: Callable):
     return np.array(g(0, 2 * K + 2)).reshape((-1, 1))
 
+
 @lru_cache(maxsize=None)
 def V(i: int, der: int, m_start: int = 0, m_end: int = M) -> complex:
     k_range = np.arange(2 * K + 1).reshape(-1, 1)
     m_range = np.arange(m_start, m_end).reshape(1, -1)
     k_m = k_range.dot(m_range)
-    pre_exp = np.exp(-pi * k_range * k_m * 2j / M)
+    pre_exp = np.exp(-pi * k_m * 2j / M)
+    print("Bef", file=sys.stderr)
     g_k = g_calc(g_gen2(i, der))
-    return np.sum(pre_exp * f * g_k)
+    print("Here", file=sys.stderr)
+    # return np.sum(pre_exp * f * g_k)
+
+    # Memory sparer alternative
+    total_sum = 0
+
+    for start in tqdm(range(0, f.shape[0], chunk_size)):
+        end = min(start + chunk_size, f.shape[0])
+        total_sum += np.sum(pre_exp * f[start:end] * g_k)
+    return total_sum
 
 
 def Omegas():
-    i_range = np.arange(Q)
-    return np.fromiter((-np.imag(N * V(i, 1) / (2 * pi * V(i, 0))) for i in i_range), dtype=float,
-                       count=Q)
+    # return np.fromiter((-np.imag(N * V(i, 1) / (2 * pi * V(i, 0))) for i in i_range), dtype=float,
+    #                   count=Q)
+
+    # Memory sparer alternative
+    for i in np.arange(Q):
+        yield -np.imag(N * V(i, 1) / (2 * pi * V(i, 0)))
 
 
 def S():
-    omegas = Omegas()
-    return np.fromiter((V(i, 0, int(Om - nu), int(Om + nu) + 1) for i, Om in enumerate(omegas)), dtype=float,
-                       count=Q)
+    # return np.fromiter((V(i, 0, int(Om - nu), int(Om + nu) + 1) for i, Om in enumerate(omegas)), dtype=float,
+    #                   count=Q)
+
+    # Memory sparer alternative
+    for i, Om in enumerate(Omegas()):
+        yield np.linalg.norm(V(i, 0, int(Om - nu), int(Om + nu) + 1))
 
 
 def CFT():
-    return np.mean(np.linalg.norm(S()))
+    # return np.mean(np.linalg.norm(S()))
+
+    # Memory sparer alternative
+    tot = 0
+    count = 0
+    for norm in S():
+        tot += norm
+        count += 1
+    return tot / count
 
 
 def amp_sigma(n: int, CFTf):
