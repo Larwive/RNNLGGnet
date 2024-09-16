@@ -3,9 +3,6 @@ from scipy.special import eval_hermite
 import mne
 import numpy as np
 from functools import lru_cache
-import sys
-
-from sympy.codegen.ast import stderr
 from tqdm import tqdm
 
 e, pi = np.e, np.pi
@@ -45,9 +42,7 @@ def V(i: int, der: int, m_start: int = 0, m_end: int = M) -> complex:
     m_range = np.arange(m_start, m_end).reshape(1, -1)
     k_m = k_range.dot(m_range)
     pre_exp = np.exp(-pi * k_m * 2j / M)
-    print("Bef", file=sys.stderr)
     g_k = g_calc(g_gen2(i, der))
-    print("Here", file=sys.stderr)
     # return np.sum(pre_exp * f * g_k)
 
     # Memory sparer alternative
@@ -148,12 +143,12 @@ def possible_candidates(c_l, step_size=1):
 
 def optimize_c(c, CFTf, lambda_penalty, min_freq=10, max_freq=15, max_iterations: int = 10):
     for iteration in range(max_iterations):
-        freqmask = (min_freq <= freqs) & (freqs <= max_freq)
+        # freqmask = (min_freq <= freqs) & (freqs <= max_freq)
         for l in range(len(c)):  # freqs[freqmask]:
             best_c_l = c[l]
             best_obj_value = objective_function(c, CFTf, lambda_penalty)
 
-            for candidate_c_l in possible_candidates(c[l], freqmask):
+            for candidate_c_l in possible_candidates(c[l]):
                 c[l] = candidate_c_l
                 obj_value = objective_function(c, CFTf, lambda_penalty)
                 if obj_value > best_obj_value:
