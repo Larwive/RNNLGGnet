@@ -3,7 +3,8 @@
 An attempt to classify patients with RBD (REM sleep behaviour disorder) and predict whether an RBD patient will develop
 the Parkinson disease (PD) using an RNN-augmented LGGNet with PSG data.
 
-The code architecture and the 'LGGnet' model is taken from `yi-ding-cs`'s repository (https://github.com/yi-ding-cs/LGG).
+The code architecture and the 'LGGnet' model is taken from `yi-ding-cs`'s
+repository (https://github.com/yi-ding-cs/LGG).
 You probably want to check their repository for better understanding.
 
 I added an RNN part (a Gru layer) and made the training in 3 phases.
@@ -20,8 +21,10 @@ A resnet50-inspired model is also used to compare with `RNNLGGnet`. This model i
 The first considered dataset is from a sleep centre, containing whole-night EEG, EOG (electrooculogram),
 ECG (electrocardiogram) and EMG (electromyogram) recordings of patients suffering from REM sleep
 behaviour disorder (RBD). Some of these patients were later diagnosed with PD, and the dataset does not
-include healthy subjects. This dataset is not publicly available. This dataset alone can only train neural networks to predict whether an RBD
-sufferer will develop PD. This is why the DREAMS database (https://zenodo.org/records/2650142#.ZFJ0pnbMJD8), especially the DREAMS Subjects
+include healthy subjects. This dataset is not publicly available. This dataset alone can only train neural networks to
+predict whether an RBD
+sufferer will develop PD. This is why the DREAMS database (https://zenodo.org/records/2650142#.ZFJ0pnbMJD8), especially
+the DREAMS Subjects
 Database, which comprises whole-night EEG and ECG data from healthy subjects is added to complete
 the dataset. This enables the detection of RBD in comparison to healthy patients.
 
@@ -35,7 +38,6 @@ channels used for PD detection.
 
 However, because the recordings (sleep center and DREAMS) do not include the same channels, RBD detection is limited to
 only three channels (O1, O2, and ECG) are used for RBD detection.
-
 
 ## 1st phase (LGG)
 
@@ -107,7 +109,6 @@ folds. For the other 4 groups, the accuracy can only reach 40% at best. Overall,
 about 50% while `ResNet-50` could only reach 68% accuracy at best for
 a certain subject group, while it had between 19% and 31% accuracy for other groups.
 
-Some of the best results are highlighted in green.
 Given the repartition of results, the labels should be more refined. The labels are currently naive for the parkinson
 part. The whole REM segments would be labelled as `1` (meaning *will develop parkinson later*).
 
@@ -116,3 +117,42 @@ be better to isolate the characteristic marks.
 
 Moreover, the time between the record time and the actual parkinson disease's contraction might be too long, thus not
 having parkinson's disease's specific marks.
+
+# Repository files
+
+- Preprocessing
+    - `concatenate_HOSP.py` concatenates `edf` files from the used dataset (not public). Can be useful as a base for
+      other databases.
+    - `edf_preprocessing.py` preprocesses `edf` files and store the results as `fif` files.
+    - `edf_to_dat.py` preprocesses `edf` files and store results as `dat` files while distributing the files to ensure
+      label distribution in the cross-validation groups.
+    - `explore.py` helps exploring the channels of each raw data file.
+    - `preprocess.py` contains the code to preprocess data.
+- Training
+    - `cross_validation.py` is in charge of the cross-validations. Based from `LGGnet`'s repository.
+    - `main.py` is the code to run to train models. Based from `LGGnet`'s repository.
+    - `model.py` defines the models (`LGGnet`, `RNNLGGnet`, `ResNet`). Based from `LGGnet`'s repository.
+    - `prepare_data.py` prepares the data for cross-validations. Based from `LGGnet`'s repository.
+    - `train.py` provides the functions used by `cross_validation.py` for training. Based from `LGGnet`'s repository.
+    - `utils.py` has miscellaneous tools. Based from `LGGnet`'s repository.
+- Checking/Visualising
+    - `compare.py` evaluates the performances of multiple models.
+    - `visualize.py` and `visualize_fif.py` plot `hdf` and `fif` files. Their purpose is not relevant enough as for now.
+- Other
+    - `example.py` gives an example usage code of a model trained using this repository.
+- Sawtooth waves
+    - `ConceFT.py` contains the code aiming to do the calculations
+      from https://iopscience.iop.org/article/10.1088/1361-6579/ad66aa. It's purpose was to use it for detection of
+      sawtooth waves but the execution time is too long in the current state. The parameters are therefore not tuned for
+      sawtooth waves. Check the article for more details.
+    - `stw_psd.py` was meant to find a way to detect sawtooth waves using PSD.
+
+# What's next
+
+RBD should be detectable using simple signal processing. I didn't have the time to clearly search for an efficient way.
+But before searching such a way, I would advise to retrain `LGGnet` or `ResNet` on a single dataset containing subjects
+suffering from RBD or not in order to be sure these models can effectively detect RBD.
+
+Sawtooth waves seem to be the way to know whether a sufferer from RBD will detect a future Parkinson's disease. I am
+imagining a check of the frequency of occurrences or the length of these waves. There are unfortunately not enough work
+done for detection of these waves.
