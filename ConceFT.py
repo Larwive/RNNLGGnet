@@ -4,9 +4,14 @@ import mne
 import numpy as np
 from functools import lru_cache
 from tqdm import tqdm
-from typing_extensions import Optional
 
 e, pi = np.e, np.pi
+
+M = 4000  # ?
+Q = 30  # ?
+J = 3  # ?
+nu = 5  # ?
+f = ... # Defined at the bottom
 
 
 def hermite_window(degree: int, N: int):  # N = 2 * K + 1
@@ -18,7 +23,6 @@ def hermite_window(degree: int, N: int):  # N = 2 * K + 1
     return np.exp(-0.5 * x ** 2) * H, exp_term * H_derivative - x * H * exp_term, x
 
 
-@lru_cache(maxsize=None)
 def g_gen2(i, der) -> Callable[[int, int], complex]:
     @lru_cache(maxsize=None)
     def g(x_start: int, x_end: int) -> complex:
@@ -27,31 +31,33 @@ def g_gen2(i, der) -> Callable[[int, int], complex]:
     return g
 
 
+def g_calc(g: Callable):
+    return np.array(g(0, 2 * K + 2)).reshape((-1, 1))
+
 @lru_cache(maxsize=None)
-def V(f: np.ndarray[float], g: Callable) -> complex:
+def V(i: int, der: int, m_start: int = 0, m_end: int = M) -> complex:
     k_range = np.arange(2 * K + 1).reshape(-1, 1)
-    m_range = np.arange(0, M).reshape(1, -1)
+    m_range = np.arange(m_start, m_end).reshape(1, -1)
     k_m = k_range.dot(m_range)
     pre_exp = np.exp(-pi * k_range * k_m * 2j / M)
-    # f_data = f[n]
-    g_k = np.array(g(0, 2 * K + 2)).reshape((-1, 1))
-    return np.sum(pre_exp * f * g_k)  # _data.reshape((-1, 1))
+    g_k = g_calc(g_gen2(i, der))
+    return np.sum(pre_exp * f * g_k)
 
 
-def Omegas(f: np.ndarray[[float]]):
+def Omegas():
     i_range = np.arange(Q)
-    return np.fromiter((-np.imag(N * V(f, g_gen2(i, 1)) / (2 * pi * V(f, g_gen2(i, 0)))) for i in i_range), dtype=float,
+    return np.fromiter((-np.imag(N * V(i, 1) / (2 * pi * V(i, 0))) for i in i_range), dtype=float,
                        count=Q)
 
 
-def S(f: np.ndarray[float]):
-    omegas = Omegas(f)
-    return np.fromiter((V(f, g_gen2(i, 0), int(Om - nu), int(Om + nu) + 1) for i, Om in enumerate(omegas)), dtype=float,
+def S():
+    omegas = Omegas()
+    return np.fromiter((V(i, 0, int(Om - nu), int(Om + nu) + 1) for i, Om in enumerate(omegas)), dtype=float,
                        count=Q)
 
 
-def CFT(f: np.ndarray[float]):
-    return np.mean(np.linalg.norm(S(f)))
+def CFT():
+    return np.mean(np.linalg.norm(S()))
 
 
 def amp_sigma(n: int, CFTf):
@@ -113,12 +119,12 @@ def possible_candidates(c_l, step_size=1):
 
 def optimize_c(c, CFTf, lambda_penalty, min_freq=10, max_freq=15, max_iterations: int = 10):
     for iteration in range(max_iterations):
-        freqmask = np.where(min_freq <= freqs <= max_freq)
-        for l in freqs[freqmask]:
+        freqmask = (min_freq <= freqs) & (freqs <= max_freq)
+        for l in range(len(c)):  # freqs[freqmask]:
             best_c_l = c[l]
             best_obj_value = objective_function(c, CFTf, lambda_penalty)
 
-            for candidate_c_l in possible_candidates(c[l]):
+            for candidate_c_l in possible_candidates(c[l], freqmask):
                 c[l] = candidate_c_l
                 obj_value = objective_function(c, CFTf, lambda_penalty)
                 if obj_value > best_obj_value:
@@ -148,10 +154,6 @@ def get_cons_int(arr: np.ndarray[int]):
 
 
 if __name__ == '__main__':
-    M = 4000  # ?
-    Q = 30  # ?
-    J = 3  # ?
-    nu = 5  # ?
     freqs = np.linspace(0, 20, M)
 
     path = 'stw/102-10-21.fif'
@@ -160,9 +162,9 @@ if __name__ == '__main__':
     N = raw.n_times
 
     channel = 0
-    f = np.array(
-        [[0] * (max(K + n, 0)) + list(raw.get_data()[channel, max(n - K, 0):K + 1 + n]) + [0] * (
-            max(K + 1 + n - raw.n_times, 0)) for n in range(N)])
+    ext_f = np.array([0] * K + list(raw.get_data()[channel, :]) + [0] * K)
+
+    f = np.array([ext_f[i: i + 2 * K + 1].reshape((-1, 1)) for i in range(N - K)])
 
     zJ = np.exp(1j * np.random.random((Q, J)) * 2 * np.pi)
 
@@ -177,7 +179,7 @@ if __name__ == '__main__':
     # CFTf = np.zeros((N, M))
     print("Computing ConceFT...")
 
-    CFTf = CFT(f)
+    CFTf = CFT()
     c = np.full((N,), 0)
     lambda_penalty = .1  # ?
 
