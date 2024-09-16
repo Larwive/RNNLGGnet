@@ -8,6 +8,7 @@ excluded, inter, excluded_events, inter_events = [], [], [], []
 count = 0
 chann_dict = {}
 
+# The path of the files to verify.
 walkpath = 'RBDdataPark/'
 walkpath = '2650142/DatabaseSubjects'
 

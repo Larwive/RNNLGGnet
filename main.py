@@ -1,3 +1,5 @@
+# Example command `python3 main.py --gpu 20 --max-epoch 200 --batch-size 128 --subjects 19 --start-subject 0 --overlap 0.5 --graph-type gen`
+
 import argparse
 from cross_validation import *
 from prepare_data import *
