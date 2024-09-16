@@ -143,10 +143,11 @@ having parkinson's disease's specific marks.
 - Preprocessing
     - `concatenate_HOSP.py` concatenates `edf` files from the used dataset (not public). Can be useful as a base for
       other databases.
-    - `edf_preprocessing.py` preprocesses `edf` files and store the results as `fif` files.
+    - `edf_preprocessing.py` preprocesses `edf` files and store the results as `fif` files. Only useful for
+      `visualize_fif.py`.
     - `edf_to_dat.py` preprocesses `edf` files and store results as `dat` files while distributing the files to ensure
-      label distribution in the cross-validation groups.
-    - `explore.py` helps exploring the channels of each raw data file.
+      label distribution in the cross-validation groups. Used for training.
+    - `explore.py` helps exploring the channels of each raw data file. Useful to verify which channels are in common.
     - `preprocess.py` contains the code to preprocess data.
 - Training
     - `cross_validation.py` is in charge of the cross-validations. Based from `LGGnet`'s repository.
