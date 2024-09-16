@@ -1,3 +1,5 @@
+# Directly run the code.
+
 from collections.abc import Callable
 from scipy.special import eval_hermite
 import mne

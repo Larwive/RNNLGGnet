@@ -1,3 +1,5 @@
+# `python3 compare.py` to run.
+
 from cross_validation import *
 from prepare_data import *
 import argparse
