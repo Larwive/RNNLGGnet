@@ -4,17 +4,9 @@ import mne
 import numpy as np
 from functools import lru_cache
 from tqdm import tqdm
+from typing_extensions import Optional
 
 e, pi = np.e, np.pi
-
-
-def f_gen(raw_data: mne.io.BaseRaw):
-    def f(start: int, end: int, c: int):
-        return np.array(
-            [0] * (max(-start, 0)) + list(raw_data.get_data()[c, max(start, 0):end]) + [0] * (
-                max(end - raw_data.n_times, 0)))
-
-    return f
 
 
 def hermite_window(degree: int, N: int):  # N = 2 * K + 1
@@ -27,15 +19,6 @@ def hermite_window(degree: int, N: int):  # N = 2 * K + 1
 
 
 @lru_cache(maxsize=None)
-def g_gen(i, der) -> Callable[[int], complex]:
-    @lru_cache(maxsize=None)
-    def g(x: int) -> complex:
-        return np.sum(zJ[i, :] * H_S[der][:, x - 1])
-
-    return g
-
-
-@lru_cache(maxsize=None)
 def g_gen2(i, der) -> Callable[[int, int], complex]:
     @lru_cache(maxsize=None)
     def g(x_start: int, x_end: int) -> complex:
@@ -45,56 +28,30 @@ def g_gen2(i, der) -> Callable[[int, int], complex]:
 
 
 @lru_cache(maxsize=None)
-def V_gen(i: int, der: int, f: Callable[[int, int, int], np.ndarray[float]]) -> Callable[
-    [int, int], complex]:
-    g = g_gen2(i, der)
-
-    @lru_cache(maxsize=None)
-    def V(n: int, m: int) -> complex:
-        k_range = np.arange(2 * K + 1)
-        pre_exp = np.exp(-pi * k_range * m * 2j / M)
-        f_data = f(n - K, n + K + 1, 0)
-        g_k = np.array(g(0, 2 * K + 2))
-        return np.sum(pre_exp * f_data * g_k)
-
-    return V
-
-@lru_cache(maxsize=None)
-def V_gen2(i: int, der: int, f: Callable[[int, int, int], np.ndarray[float]]) -> Callable[
-    [int, int, int], complex]:
-    g = g_gen2(i, der)
-
-    @lru_cache(maxsize=None)
-    def V(n: int, m_start: int, m_end: int) -> complex:
-        k_range = np.arange(2 * K + 1).reshape(-1, 1)
-        m_range = np.arange(m_start, m_end).reshape(1, -1)
-        k_m = k_range.dot(m_range)
-        pre_exp = np.exp(-pi * k_range * k_m * 2j / M)
-        f_data = f(n - K, n + K + 1, 0)
-        g_k = np.array(g(0, 2 * K + 2)).reshape((-1, 1))
-        return np.sum(pre_exp * f_data.reshape((-1, 1)) * g_k)
-
-    return V
+def V(f: np.ndarray[float], g: Callable) -> complex:
+    k_range = np.arange(2 * K + 1).reshape(-1, 1)
+    m_range = np.arange(0, M).reshape(1, -1)
+    k_m = k_range.dot(m_range)
+    pre_exp = np.exp(-pi * k_range * k_m * 2j / M)
+    # f_data = f[n]
+    g_k = np.array(g(0, 2 * K + 2)).reshape((-1, 1))
+    return np.sum(pre_exp * f * g_k)  # _data.reshape((-1, 1))
 
 
-@lru_cache(maxsize=None)
-def Omega(n: int, m: int, i: int, f: Callable[[int, int, int], np.ndarray[float]]):
-    Vi = V_gen(i, 0, f)
-    Vip = V_gen(i, 1, f)
-    return -np.imag(N * Vip(n, m) / (2 * pi * Vi(n, m)))
+def Omegas(f: np.ndarray[[float]]):
+    i_range = np.arange(Q)
+    return np.fromiter((-np.imag(N * V(f, g_gen2(i, 1)) / (2 * pi * V(f, g_gen2(i, 0)))) for i in i_range), dtype=float,
+                       count=Q)
 
 
-@lru_cache(maxsize=None)
-def S_i(n: int, m: int, i: int, f: Callable[[int, int, int], np.ndarray[float]]):
-    Vi = V_gen2(i, 0, f)
-    return Vi(n, int(Omega(n, m, i, f) - nu), int(Omega(n, m, i, f) + nu) + 1)
+def S(f: np.ndarray[float]):
+    omegas = Omegas(f)
+    return np.fromiter((V(f, g_gen2(i, 0), int(Om - nu), int(Om + nu) + 1) for i, Om in enumerate(omegas)), dtype=float,
+                       count=Q)
 
 
-def CFT(n: int, m: int, f: Callable[[int, int, int], np.ndarray[float]]):
-    s = 0
-    for i in range(Q):
-        s += np.linalg.norm(S_i(n, m, i, f))
-    return s / Q
+def CFT(f: np.ndarray[float]):
+    return np.mean(np.linalg.norm(S(f)))
 
 
 def amp_sigma(n: int, CFTf):
@@ -201,7 +158,11 @@ if __name__ == '__main__':
     raw = mne.io.read_raw_fif(path, preload=True)
     K = int(raw.info['sfreq'])
     N = raw.n_times
-    f = f_gen(raw)
+
+    channel = 0
+    f = np.array(
+        [[0] * (max(K + n, 0)) + list(raw.get_data()[channel, max(n - K, 0):K + 1 + n]) + [0] * (
+            max(K + 1 + n - raw.n_times, 0)) for n in range(N)])
 
     zJ = np.exp(1j * np.random.random((Q, J)) * 2 * np.pi)
 
@@ -213,13 +174,12 @@ if __name__ == '__main__':
     hp_s = np.array([h1p, h2p, h3p])
 
     H_S = [h_s, hp_s]
-    CFTf = np.zeros((N, M))
+    # CFTf = np.zeros((N, M))
     print("Computing ConceFT...")
-    for i in range(N):
-        for m in range(M):
-            CFTf[i, m] = CFT(i, m, f)
+
+    CFTf = CFT(f)
     c = np.full((N,), 0)
-    lambda_penalty = .1 # ?
+    lambda_penalty = .1  # ?
 
     print("Computing C*...")
     c_star = optimize_c(c, CFTf, lambda_penalty)
