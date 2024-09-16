@@ -7,9 +7,9 @@ from tqdm import tqdm
 
 e, pi = np.e, np.pi
 
-M = 4000  # ?
-Q = 30  # ?
-J = 3  # ?
+M = 4000  # The resolution of frequency axis
+Q = 30  # The number of points sampled for multitaper in ConceFT
+J = 3  # The number of Hermite windows for ConceFT
 nu = 5  # ?
 f = ...  # Defined at the bottom
 chunk_size = 100
@@ -182,7 +182,7 @@ if __name__ == '__main__':
 
     path = 'stw/102-10-21.fif'
     raw = mne.io.read_raw_fif(path, preload=True)
-    K = int(raw.info['sfreq'])
+    K = int(raw.info['sfreq']) # The length of the Hermite windows is 2K + 1
     N = raw.n_times
 
     channel = 0
@@ -216,8 +216,8 @@ if __name__ == '__main__':
 
     norm_ps_sigma = np.array([norm_p_sigma(i, CFTf) for i in range(N)])
 
-    delta = 1
-    epsilon = .2
+    delta = 1 # The parameter for the hard threshold of the sigma band
+    epsilon = .2 # The threshold of the normalized sigma band power amplitude
     T1 = np.where(amps_sigma > amps_avg + delta * amps_std)
     T2 = np.where(norm_ps_sigma >= epsilon)
 
