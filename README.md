@@ -37,9 +37,9 @@ EMG Chin, ECG EKG, EMG Left_Leg, EMG Right_Leg, Snoring Snore, Airflow, Resp Tho
 channels used for PD detection.
 
 However, because the recordings (sleep center and DREAMS) do not include the same channels, RBD detection is limited to
-only three channels (O1, O2, and ECG) are used for RBD detection.
+**only three channels (O1, O2, and ECG) are used for RBD detection**.
 
-## 1st phase (LGG)
+## 1st phase (LGGnet)
 
 I added a sigmoid layer at the end of the `forward` method of the model and the `fc` layer is augmented by an
 intermediate `Linear` layer.
@@ -70,9 +70,29 @@ All the parameters are being trained simultaneously. Everything else is like the
 
 The training of the `resnet` model is the same as the modified first stage of `RNNLGGnet`.
 
+## Reasoning and considerations
+
+`RNNLGGnet` is an RNN-augmented `LGGnet`. Recurrent neural networks (RNN) are a type
+of neural network designed to handle time-series data, which is a data variable in length. It can also retain
+information to influence future predictions. The most well-known are long short-term memory networks (LSTM) and gated
+recurrent units (GRU). The choice of the RNN was straightforward as LSTM and GRU have similar performances while GRU
+requires fewer parameters, thus making it easier to train.
+
+The multiphase pipeline is designed to give sense to the different parts of the model. The `LGGnet` is meant to focus on
+learning to recognise patterns while the RNN part tries to keep the relevant information depending on the past data.Due
+to the presence of RNN, phase 2 and 3 have the input training data presented linearly subject per subject, resetting the
+RNN part between each subject. This choice is motivated by the will of letting the model trying to predict from an
+entire time-series input as a physician would do.
+
+`ResNet`, the ResNet-50-inspired model is developed to handle 1D data, especially the time-series data provided. While
+`RNNLGGnet` aims at predicting over the whole subject’s segment, `ResNet` will attempt to recognise the pattern
+associated with either RBD or PD. It is indeed well known that ResNet-50 networks perform very well in image
+classification.
+
 # Results
 
-Don't train phases 2 and 3. Phase 1 is largely better (which actually consists of a slightly less overfitting `LGG`).
+Short version: Don't train phases 2 and 3. Phase 1 is largely better (which actually consists of a slightly less
+overfitting `LGGnet`).
 
 Link to results: https://docs.google.com/document/d/1E_bEYQ98wCeGFsEgza_1uB-pqniT3MLgYNjN5CrfDJs
 
