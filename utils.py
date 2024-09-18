@@ -201,6 +201,7 @@ def load_RNNLGG(path, LGG_path, graph_type, input_size, sampling_rate, n_out_cha
                       num_T=n_out_channels, out_graph=n_hidden,
                       pool=pool, pool_step_rate=pool_step_rate,
                       idx_graph=idx_local_graph, phase=3)
+    model.load_state_dict(torch.load(path, weights_only=False))
     return model
 
 
