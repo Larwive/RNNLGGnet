@@ -85,7 +85,7 @@ for epoch in dataloader:
     resnet_count0 += len(epoch) - resnet_pred.sum()
     resnet_count1 += resnet_pred.sum()
 
-# Prin results
+# Print results
 print("LGG:\n'0': {}\n'1': {}".format(lgg_count0, lgg_count1))
 print("RNNLGG:\n'0': {}\n'1': {}".format(rnnlgg_count0, rnnlgg_count1))
 print("Resnet:\n'0': {}\n'1': {}".format(resnet_count0, resnet_count1))

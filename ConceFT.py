@@ -1,6 +1,6 @@
 # Directly run the code.
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from scipy.special import eval_hermite
 import mne
 import numpy as np
@@ -17,7 +17,13 @@ f = ...  # Defined at the bottom
 chunk_size = 100
 
 
-def hermite_window(degree: int, N: int):  # N = 2 * K + 1
+def hermite_window(degree: int, N: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:  # N = 2 * K + 1
+    """
+    Compute the hermite window and its derivative of a certain degree.
+    :param degree: The degree of the hermite window.
+    :param N: The resolution of x abscissa.
+    :return: Hermite window, its derivative and the abscissa.
+    """
     x = np.linspace(-10, 10, N)
     H = eval_hermite(degree, x)
 
@@ -27,6 +33,12 @@ def hermite_window(degree: int, N: int):  # N = 2 * K + 1
 
 
 def g_gen2(i, der) -> Callable[[int, int], complex]:
+    """
+    Returns the `g` function described in the article for a certain i and hermitte window.
+    :param i: The i.
+    :param der: Whether to use the derivative of the hermite window.
+    :return: The `g` function.
+    """
     @lru_cache(maxsize=None)
     def g(x_start: int, x_end: int) -> complex:
         return np.sum(zJ[i, :].reshape((-1, 1)) * H_S[der][:, x_start:x_end - 1], axis=0)
@@ -34,7 +46,7 @@ def g_gen2(i, der) -> Callable[[int, int], complex]:
     return g
 
 
-def g_calc(g: Callable):
+def g_calc(g: Callable) -> np.ndarray:
     return np.array(g(0, 2 * K + 2)).reshape((-1, 1))
 
 
@@ -56,7 +68,7 @@ def V(i: int, der: int, m_start: int = 0, m_end: int = M) -> complex:
     return total_sum
 
 
-def Omegas():
+def Omegas() -> Generator[float]:
     # return np.fromiter((-np.imag(N * V(i, 1) / (2 * pi * V(i, 0))) for i in i_range), dtype=float,
     #                   count=Q)
 
@@ -65,7 +77,7 @@ def Omegas():
         yield -np.imag(N * V(i, 1) / (2 * pi * V(i, 0)))
 
 
-def S():
+def S() -> Generator[float]:
     # return np.fromiter((V(i, 0, int(Om - nu), int(Om + nu) + 1) for i, Om in enumerate(omegas)), dtype=float,
     #                   count=Q)
 
@@ -163,6 +175,11 @@ def optimize_c(c, CFTf, lambda_penalty, min_freq=10, max_freq=15, max_iterations
 
 
 def get_cons_int(arr: np.ndarray[int]):
+    """
+    Compute the indexes of consecutive int in an ordered int iterable.
+    :param arr: The iterable.
+    :return: List of tuples containing hte indexes.
+    """
     indexes = []
     start = 0
     for i in range(len(arr) - 1):
