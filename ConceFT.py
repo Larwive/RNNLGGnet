@@ -219,7 +219,6 @@ if __name__ == '__main__':
     hp_s = np.array([h1p, h2p, h3p])
 
     H_S = [h_s, hp_s]
-    # CFTf = np.zeros((N, M))
     print("Computing ConceFT...")
 
     CFTf = CFT()
