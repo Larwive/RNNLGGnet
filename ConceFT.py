@@ -39,6 +39,7 @@ def g_gen2(i, der) -> Callable[[int, int], complex]:
     :param der: Whether to use the derivative of the hermite window.
     :return: The `g` function.
     """
+
     @lru_cache(maxsize=None)
     def g(x_start: int, x_end: int) -> complex:
         return np.sum(zJ[i, :].reshape((-1, 1)) * H_S[der][:, x_start:x_end - 1], axis=0)
@@ -50,26 +51,26 @@ def g_calc(g: Callable) -> np.ndarray:
     return np.array(g(0, 2 * K + 2)).reshape((-1, 1))
 
 
-@lru_cache(maxsize=None)
-def V(i: int, der: int, m_start: int = 0, m_end: int = M) -> complex:
+def V(i: int, der: int, m_start: int = 0, m_end: int = M) -> np.ndarray:
     k_range = np.arange(2 * K + 1).reshape(-1, 1)
     m_range = np.arange(m_start, m_end).reshape(1, -1)
     k_m = k_range.dot(m_range)
     pre_exp = np.exp(-pi * k_m * 2j / M)
     g_k = g_calc(g_gen2(i, der))
-    # return np.sum(pre_exp * f * g_k)
+
+    # return np.sum(pre_exp * f * g_k, axis=1) # (257, 4000) * (3491456, 257, 1) * (257, 1) -> (3491456, 257, 4000)
 
     # Memory sparer alternative
-    total_sum = 0
+    final = np.zeros((f.shape[0], pre_exp.shape[1]), dtype=np.complex128)
 
     for start in tqdm(range(0, f.shape[0], chunk_size)):
         end = min(start + chunk_size, f.shape[0])
-        total_sum += np.sum(pre_exp * f[start:end] * g_k)
-    return total_sum
+        final[start:end] = np.sum(pre_exp * f[start:end] * g_k, axis=1)
+    return final
 
 
-def Omegas() -> Generator[float]:
-    # return np.fromiter((-np.imag(N * V(i, 1) / (2 * pi * V(i, 0))) for i in i_range), dtype=float,
+def Omegas() -> Generator[np.ndarray]:
+    # return np.fromiter((-np.imag(N * V(i, 1) / (2 * pi * V(i, 0))) for i in i_range), dtype=np.complex128,
     #                   count=Q)
 
     # Memory sparer alternative
@@ -77,13 +78,13 @@ def Omegas() -> Generator[float]:
         yield -np.imag(N * V(i, 1) / (2 * pi * V(i, 0)))
 
 
-def S() -> Generator[float]:
-    # return np.fromiter((V(i, 0, int(Om - nu), int(Om + nu) + 1) for i, Om in enumerate(omegas)), dtype=float,
+def S() -> Generator[np.ndarray]:
+    # return np.fromiter((V(i, 0, int(Om - nu), int(Om + nu) + 1) for i, Om in enumerate(omegas)), dtype=np.complex128,
     #                   count=Q)
 
     # Memory sparer alternative
     for i, Om in enumerate(Omegas()):
-        yield np.linalg.norm(V(i, 0, int(Om - nu), int(Om + nu) + 1))
+        yield np.abs(V(i, 0, int(Om - nu), int(Om + nu) + 1))
 
 
 def CFT():
@@ -201,7 +202,7 @@ if __name__ == '__main__':
 
     path = 'stw/102-10-21.fif'
     raw = mne.io.read_raw_fif(path, preload=True)
-    K = int(raw.info['sfreq']) # The length of the Hermite windows is 2K + 1
+    K = int(raw.info['sfreq'])  # The length of the Hermite windows is 2K + 1
     N = raw.n_times
 
     channel = 0
@@ -234,8 +235,8 @@ if __name__ == '__main__':
 
     norm_ps_sigma = np.array([norm_p_sigma(i, CFTf) for i in range(N)])
 
-    delta = 1 # The parameter for the hard threshold of the sigma band
-    epsilon = .2 # The threshold of the normalized sigma band power amplitude
+    delta = 1  # The parameter for the hard threshold of the sigma band
+    epsilon = .2  # The threshold of the normalized sigma band power amplitude
     T1 = np.where(amps_sigma > amps_avg + delta * amps_std)
     T2 = np.where(norm_ps_sigma >= epsilon)
 
